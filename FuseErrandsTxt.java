@@ -96,12 +96,15 @@ public class FuseErrandsTxt {
 		final String filename = "/hello.txt";
 		final String filename2 = "/errands.txt";
 		final String contents = "Hello World!\n";
+		final String contents2 ;
+		
 		@Deprecated
 		private static final String CONTENTS = "Hello World\n";
-		private  String in;
+		private String in;
 		private String out;
 
 		public HelloFS1(String string) {
+			contents2 = "N/A";
 			try {
 				this.log(true).mount(string);
 			} catch (FuseException e) {
@@ -114,6 +117,7 @@ public class FuseErrandsTxt {
 		public HelloFS1(String in, String out) {
 			this.in = in;
 			this.out = out;
+			this.contents2 = dir2Txt(in, "");
 			try {
 				this.log(true).mount(out);
 			} catch (FuseException e) {
@@ -133,7 +137,7 @@ public class FuseErrandsTxt {
 				return 0;
 			}
 			if (path.equals(filename2)) { // hello.txt
-				stat.setMode(NodeType.FILE).size(contents.length());
+				stat.setMode(NodeType.FILE).size(contents2.length());
 				return 0;
 			}
 			return -ErrorCodes.ENOENT();
@@ -162,7 +166,7 @@ public class FuseErrandsTxt {
 		}
 
 //		@Override
-		public int read2(final String path, final ByteBuffer buffer, final long size, final long offset,
+		public int read1(final String path, final ByteBuffer buffer, final long size, final long offset,
 				final FileInfoWrapper info) {
 			// Compute substring that we are being asked to read
 			final String fileContents = contents.substring((int) offset,
@@ -174,11 +178,12 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int read(String path, ByteBuffer buffer, long size, long offset, final FileInfoWrapper info) {
-			System.err.println("FuseErrandsTxt.read2() path = " + path);
+			System.err.println("FuseErrandsTxt.read2() A path = " + path);
 			// Compute substring that we are being asked to read
-			final String fileContents = dir2Txt(in, out);
+			final String fileContents = contents2;
+			System.out.println("FuseErrandsTxt.HelloFS1.read2() B fileContents = " + fileContents);
 			buffer.put(fileContents.getBytes());
-			 System.out.println("SRIDHAR App.read2() " + fileContents);
+			System.out.println("FuseErrandsTxt.HelloFS1.read2() C fileContents = " + fileContents);
 			return fileContents.getBytes().length;
 		}
 
@@ -205,8 +210,8 @@ public class FuseErrandsTxt {
 				System.out.println("FuseErrandsTxt.dir2Txt() " + f.getAbsolutePath());
 				if (f.isDirectory()) {
 //					contents += dir2Txt(f.getAbsolutePath(), indentation + "\t");
-				} else if (f.isFile()) {
 					contents += f.getName() + "\n";
+				} else if (f.isFile()) {
 				}
 			}
 			return contents;
