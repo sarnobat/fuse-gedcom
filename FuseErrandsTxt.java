@@ -51,34 +51,6 @@ public class FuseErrandsTxt {
 		}
 		System.out.println("App.main() 3");
 
-//		new Thread() {
-//
-//			@SuppressWarnings("resource")
-//			@Override
-//			public void run() {
-//				System.out.println("App.main.run() 1");
-//				String dirPath = System.getProperty("in", System.getProperty("user.home") + "/sarnobat.git/errands/");
-//
-//				String ret = dir2Txt(dirPath, "");
-//			}
-//
-//			@Deprecated
-//			private String dir2Txt(String property, String indentation) {
-//				String contents = "";
-//				File dir = new File(property);
-//				List<File> files = Arrays.stream(Objects.requireNonNull(dir.listFiles())).collect(Collectors.toList());
-//				for (File f : files) {
-//					System.out.println("FuseErrandsTxt.main() " + f.getAbsolutePath());
-//					if (f.isDirectory()) {
-//						contents += dir2Txt(f.getAbsolutePath(), indentation + "\t");
-//					} else if (f.isFile()) {
-//						contents += f.getName() + "\n";
-//					}
-//				}
-//				return contents;
-//			}
-//
-//		}.run();
 		String in = System.getProperty("in", System.getProperty("user.home") + "/sarnobat.git/errands/");
 		System.out.println("App.main() 5");
 		if (!args[0].equals(out)) {
@@ -87,32 +59,15 @@ public class FuseErrandsTxt {
 			System.out.println("FuseErrandsTxt.main() error");
 			System.exit(-1);
 		}
-//		new HelloFS1(args[0]);
-//		new HelloFS1(out);
 		new HelloFS1(in, out);
 	}
 
 	static class HelloFS1 extends FuseFilesystemAdapterFull {
-		final String filename = "/hello.txt";
 		final String filename2 = "/errands.txt";
-		final String contents = "Hello World!\n";
 		final String contents2 ;
 		
-		@Deprecated
-		private static final String CONTENTS = "Hello World\n";
 		private String in;
 		private String out;
-
-		public HelloFS1(String string) {
-			contents2 = "N/A";
-			try {
-				this.log(true).mount(string);
-			} catch (FuseException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				System.exit(-1);
-			}
-		}
 
 		public HelloFS1(String in, String out) {
 			this.in = in;
@@ -132,48 +87,11 @@ public class FuseErrandsTxt {
 				stat.setMode(NodeType.DIRECTORY);
 				return 0;
 			}
-			if (path.equals(filename)) { // hello.txt
-				stat.setMode(NodeType.FILE).size(contents.length());
-				return 0;
-			}
 			if (path.equals(filename2)) { // hello.txt
 				stat.setMode(NodeType.FILE).size(contents2.length());
 				return 0;
 			}
 			return -ErrorCodes.ENOENT();
-		}
-
-//		@Override
-		public int getattr1(String path, StatWrapper stat) {
-			try {
-				stat.setAllTimesMillis(System.currentTimeMillis());
-				// System.out.println("SRIDHAR App.getattr() " + path);
-				if (path.equals(File.separator)) { // Root directory
-					stat.setMode(NodeType.DIRECTORY);
-					return 0;
-				}
-				if (path.contains(".txt")) { // hello.txt
-					stat.setMode(NodeType.FILE).size(CONTENTS.length());
-					return 0;
-				} else {
-					stat.setMode(NodeType.DIRECTORY);
-					return 0;
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-				return ErrorCodes.ENOENT();
-			}
-		}
-
-//		@Override
-		public int read1(final String path, final ByteBuffer buffer, final long size, final long offset,
-				final FileInfoWrapper info) {
-			// Compute substring that we are being asked to read
-			final String fileContents = contents.substring((int) offset,
-					(int) Math.max(offset, Math.min(contents.length() - offset, offset + size)));
-			System.out.println("SRIDHAR App.read1() " + fileContents);
-			buffer.put(fileContents.getBytes());
-			return fileContents.getBytes().length;
 		}
 
 		@Override
@@ -197,7 +115,6 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int readdir(final String path, final DirectoryFiller filler) {
-			filler.add(filename);
 			filler.add(filename2);
 			return 0;
 		}
@@ -215,24 +132,6 @@ public class FuseErrandsTxt {
 				}
 			}
 			return contents;
-		}
-
-//		@Override
-		public int readdir1(String path, DirectoryFiller filler) {
-			System.out.println("SRIDHAR App.readdir() " + path);
-			try {
-				if (path.equals("/")) {
-					System.out.println("FuseErrandsTxt.My.readdir() 1");
-					filler.add("errands.txt");
-				} else {
-					System.out.println("FuseErrandsTxt.My.readdir() 2");
-					String s = Paths.get(path).getFileName().toString();
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-				System.exit(-1);
-			}
-			return 0;
 		}
 
 		@Override
