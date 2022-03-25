@@ -21,6 +21,9 @@ import net.fusejna.util.FuseFilesystemAdapterFull;
 
 // 2022-03: going forward, I'm using Java 11. No neeed for groovy anymore
 // https://github.com/EtiennePerot/fuse-jna/blob/master/src/main/java/net/fusejna/util/FuseFilesystemAdapterFull.java
+//
+// Copied from:
+// 		https://github.com/EtiennePerot/fuse-jna/blob/master/src/main/java/net/fusejna/examples/MemoryFS.java
 public class FuseErrandsTxt {
 
 	public static void main(String[] args) throws FuseException, IOException {
