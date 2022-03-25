@@ -58,10 +58,13 @@ public class App extends FuseFilesystemAdapterFull {
 		} else {
 			System.err.println("Usage: HelloFS <mountpoint>");
 			String string = "family_tree";
-			String string2 = System.getProperty("user.home") + "/github/fuse-java/proj/" + string;
-			new ProcessBuilder().command("diskutil", "unmount", string2).inheritIO().start();
+			//String string2 = System.getProperty("user.home") + "/github/fuse-java/proj/" + string;
+			String string2 = System.getProperty("dir");
+//			new ProcessBuilder().command("diskutil", "unmount", string2).inheritIO().start();
 			try {
-				Files.createDirectory(Paths.get(string2));
+				Path p = Paths.get(string2);
+				System.err.println(p);
+				Files.createDirectory(p);
 			} catch (FileAlreadyExistsException e) {
 //				System.out.println("App.main() 2");
 //				System.exit(-1);
@@ -74,7 +77,8 @@ public class App extends FuseFilesystemAdapterFull {
 				@Override
 				public void run() {
 					System.out.println("App.main.run() 1");
-					File myObj = new File(System.getProperty("user.home") + "/sarnobat.git/gedcom/rohidekar.ged");
+					//File myObj = new File(System.getProperty("user.home") + "/sarnobat.git/gedcom/rohidekar.ged");
+					File myObj = new File(System.getProperty("gedcom"));
 					Scanner myReader;
 
 					try {
