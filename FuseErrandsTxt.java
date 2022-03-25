@@ -2,6 +2,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -63,9 +64,10 @@ public class FuseErrandsTxt {
 	}
 
 	static class HelloFS1 extends FuseFilesystemAdapterFull {
-		final String filename2 = "/errands.txt";
-		final String contents2 ;
-		
+		private final String filename2 = "/errands.txt";
+		private String contents2;
+		private ByteBuffer contents = ByteBuffer.allocate(0);
+
 		private String in;
 		private String out;
 
@@ -100,7 +102,12 @@ public class FuseErrandsTxt {
 			// Compute substring that we are being asked to read
 			final String fileContents = contents2;
 			System.out.println("FuseErrandsTxt.HelloFS1.read2() B fileContents = " + fileContents);
+			try {
 			buffer.put(fileContents.getBytes());
+			} catch (Exception e) {
+				e.printStackTrace();
+//				System.exit(-1);
+			}
 			System.out.println("FuseErrandsTxt.HelloFS1.read2() C fileContents = " + fileContents);
 			return fileContents.getBytes().length;
 		}
@@ -140,6 +147,35 @@ public class FuseErrandsTxt {
 			System.out.println("SRIDHAR App.rename() mv " + oldName + " " + newName);
 			return 0;
 
+		}
+
+		@Override
+		public int write(final String path, final ByteBuffer buf, final long bufSize, final long writeOffset,
+				final FileInfoWrapper wrapper) {
+//			String toBeWritten = new String(buf.array(), StandardCharsets.UTF_8);
+//			contents2 = toBeWritten;
+//			System.out.println("FuseErrandsTxt.HelloFS1.write() " + toBeWritten);
+			return doWrite(buf, bufSize, writeOffset);
+		}
+		
+		private int doWrite(final ByteBuffer buffer, final long bufSize, final long writeOffset)
+		{
+			final int maxWriteIndex = (int) (writeOffset + bufSize);
+			final byte[] bytesToWrite = new byte[(int) bufSize];
+			synchronized (this) {
+				if (maxWriteIndex > contents.capacity()) {
+					// Need to create a new, larger buffer
+					final ByteBuffer newContents = ByteBuffer.allocate(maxWriteIndex);
+					newContents.put(contents);
+					contents = newContents;
+				}
+				buffer.get(bytesToWrite, 0, (int) bufSize);
+				contents.position((int) writeOffset);
+				contents.put(bytesToWrite);
+				contents2 = new String(bytesToWrite, StandardCharsets.UTF_8);
+				contents.position(0); // Rewind
+			}
+			return (int) bufSize;
 		}
 	}
 
