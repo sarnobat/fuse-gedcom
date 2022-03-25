@@ -28,7 +28,7 @@ import net.fusejna.util.FuseFilesystemAdapterFull;
 
 // 2022-03: going forward, I'm using Java 11. No neeed for groovy anymore
 // https://github.com/EtiennePerot/fuse-jna/blob/master/src/main/java/net/fusejna/util/FuseFilesystemAdapterFull.java
-public class App extends FuseFilesystemAdapterFull {
+public class FuseErrandsTxt extends FuseFilesystemAdapterFull {
 
 	private static Map<String, Individual> childToMother = new HashMap<>();
 	private static Map<String, Individual> childToFather = new HashMap<>();
@@ -40,6 +40,7 @@ public class App extends FuseFilesystemAdapterFull {
 	private static Map<String, Individual> displayNameToIndividualWithSpouse = new HashMap<>();
 	private static Map<String, Family> idToFamily = new HashMap<>();
 	private static Set<Individual> individualsWithNoParent = new HashSet<>();
+
 	@Deprecated
 	// we are mixing different marriages
 	private static Multimap<String, Individual> displayNameToChildren = HashMultimap.create();
@@ -56,12 +57,13 @@ public class App extends FuseFilesystemAdapterFull {
 		// "/sarnobat.garagebandbroken/trash/fuse-jna/mnt" };
 		System.out.println("App.main() 1");
 		if (args.length == 1) {
-			new App().log(true).mount(args[0]);
+			new FuseErrandsTxt().log(true).mount(args[0]);
 		} else {
 			System.err.println("Usage: HelloFS <mountpoint>");
-			//String string2 = System.getProperty("user.home") + "/github/fuse-java/proj/" + string;
+			// String string2 = System.getProperty("user.home") + "/github/fuse-java/proj/"
+			// + string;
 			String string2 = System.getProperty("dir");
-			String string = string2;//"family_tree";
+			String string = string2;// "family_tree";
 //			new ProcessBuilder().command("diskutil", "unmount", string2).inheritIO().start();
 			try {
 				Path p = Paths.get(string2);
@@ -79,7 +81,8 @@ public class App extends FuseFilesystemAdapterFull {
 				@Override
 				public void run() {
 					System.out.println("App.main.run() 1");
-					//File myObj = new File(System.getProperty("user.home") + "/sarnobat.git/gedcom/rohidekar.ged");
+					// File myObj = new File(System.getProperty("user.home") +
+					// "/sarnobat.git/gedcom/rohidekar.ged");
 					File myObj = new File(System.getProperty("gedcom"));
 					Scanner myReader;
 
@@ -227,7 +230,7 @@ public class App extends FuseFilesystemAdapterFull {
 
 			}.run();
 			System.out.println("App.main() 5");
-			new App().log(false).mount(string);
+			new FuseErrandsTxt().log(false).mount(string);
 		}
 	}
 
