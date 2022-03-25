@@ -94,6 +94,7 @@ public class FuseErrandsTxt {
 
 	static class HelloFS1 extends FuseFilesystemAdapterFull {
 		final String filename = "/hello.txt";
+		final String filename2 = "/errands.txt";
 		final String contents = "Hello World!\n";
 		@Deprecated
 		private static final String CONTENTS = "Hello World\n";
@@ -128,6 +129,10 @@ public class FuseErrandsTxt {
 				return 0;
 			}
 			if (path.equals(filename)) { // hello.txt
+				stat.setMode(NodeType.FILE).size(contents.length());
+				return 0;
+			}
+			if (path.equals(filename2)) { // hello.txt
 				stat.setMode(NodeType.FILE).size(contents.length());
 				return 0;
 			}
@@ -177,6 +182,7 @@ public class FuseErrandsTxt {
 		@Override
 		public int readdir(final String path, final DirectoryFiller filler) {
 			filler.add(filename);
+			filler.add(filename2);
 			return 0;
 		}
 
