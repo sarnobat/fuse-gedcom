@@ -81,18 +81,29 @@ public class FuseErrandsTxt {
 //		}.run();
 		String in = System.getProperty("in", System.getProperty("user.home") + "/sarnobat.git/errands/");
 		System.out.println("App.main() 5");
-		new My(in, out);
+		new HelloFS1(args[0]);
+//		new HelloFS1(in, out);
 	}
 
-	static class My extends FuseFilesystemAdapterFull {
+	static class HelloFS1 extends FuseFilesystemAdapterFull {
 		final String filename = "/hello.txt";
 		final String contents = "Hello World!\n";
 		@Deprecated
 		private static final String CONTENTS = "Hello World\n";
-		private final String in;
-		private final String out;
+		private  String in;
+		private String out;
 
-		public My(String in, String out) {
+		public HelloFS1(String string) {
+			try {
+				this.log(true).mount(string);
+			} catch (FuseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				System.exit(-1);
+			}
+		}
+
+		public HelloFS1(String in, String out) {
 			this.in = in;
 			this.out = out;
 			try {
@@ -138,6 +149,16 @@ public class FuseErrandsTxt {
 			}
 		}
 
+		@Override
+		public int read(final String path, final ByteBuffer buffer, final long size, final long offset,
+				final FileInfoWrapper info) {
+			// Compute substring that we are being asked to read
+			final String s = contents.substring((int) offset,
+					(int) Math.max(offset, Math.min(contents.length() - offset, offset + size)));
+			buffer.put(s.getBytes());
+			return s.getBytes().length;
+		}
+
 		private String getLastPartOf(String path) {
 			Path path2 = Paths.get(path);
 			// String string = path2.getName(path2.getNameCount()).toString();
@@ -177,7 +198,7 @@ public class FuseErrandsTxt {
 			return contents;
 		}
 
-		@Override
+//		@Override
 		public int readdir1(String path, DirectoryFiller filler) {
 			System.out.println("SRIDHAR App.readdir() " + path);
 			try {
