@@ -39,7 +39,7 @@ public class FuseErrandsTxt {
 	public static void main(String[] args) throws FuseException, IOException {
 		System.out.println("App.main() 1");
 		System.err.println("Usage: HelloFS <mountpoint>");
-		String out = System.getProperty("out", "/tmp/errands/");
+		String out = System.getProperty("out", "/tmp/1/");
 //			new ProcessBuilder().command("diskutil", "unmount", string2).inheritIO().start();
 		try {
 			Path p = Paths.get(out);
@@ -81,8 +81,15 @@ public class FuseErrandsTxt {
 //		}.run();
 		String in = System.getProperty("in", System.getProperty("user.home") + "/sarnobat.git/errands/");
 		System.out.println("App.main() 5");
-		new HelloFS1(args[0]);
-//		new HelloFS1(in, out);
+		if (!args[0].equals(out)) {
+			System.out.println("FuseErrandsTxt.main() out = " + out);
+			System.out.println("FuseErrandsTxt.main() args[0] = " + args[0]);
+			System.out.println("FuseErrandsTxt.main() error");
+			System.exit(-1);
+		}
+//		new HelloFS1(args[0]);
+//		new HelloFS1(out);
+		new HelloFS1(in, out);
 	}
 
 	static class HelloFS1 extends FuseFilesystemAdapterFull {
@@ -107,7 +114,7 @@ public class FuseErrandsTxt {
 			this.in = in;
 			this.out = out;
 			try {
-				this.log(true).mount(in);
+				this.log(true).mount(out);
 			} catch (FuseException e) {
 				e.printStackTrace();
 				System.exit(-1);
