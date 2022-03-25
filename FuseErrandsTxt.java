@@ -1,5 +1,4 @@
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -8,20 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Scanner;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 
 import net.fusejna.DirectoryFiller;
 import net.fusejna.ErrorCodes;
@@ -34,8 +22,6 @@ import net.fusejna.util.FuseFilesystemAdapterFull;
 // 2022-03: going forward, I'm using Java 11. No neeed for groovy anymore
 // https://github.com/EtiennePerot/fuse-jna/blob/master/src/main/java/net/fusejna/util/FuseFilesystemAdapterFull.java
 public class FuseErrandsTxt {
-
-	private static Map<String, String> displayNameOfChildToParent = new HashMap<>();
 
 	public static void main(String[] args) throws FuseException, IOException {
 		System.out.println("App.main() 1");
@@ -68,12 +54,7 @@ public class FuseErrandsTxt {
 		private String contents2;
 		private ByteBuffer contents = ByteBuffer.allocate(0);
 
-		private String in;
-		private String out;
-
 		public HelloFS1(String in, String out) {
-			this.in = in;
-			this.out = out;
 			this.contents2 = dir2Txt(in, "");
 			try {
 				this.log(true).mount(out);
@@ -106,18 +87,9 @@ public class FuseErrandsTxt {
 			buffer.put(fileContents.getBytes());
 			} catch (Exception e) {
 				e.printStackTrace();
-//				System.exit(-1);
 			}
 			System.out.println("FuseErrandsTxt.HelloFS1.read2() C fileContents = " + fileContents);
 			return fileContents.getBytes().length;
-		}
-
-		private String getLastPartOf(String path) {
-			Path path2 = Paths.get(path);
-			// String string = path2.getName(path2.getNameCount()).toString();
-			String string = path2.getFileName().toString();
-			// System.out.println("SRIDHAR App.getLastPartOf() " + string);
-			return string;
 		}
 
 		@Override
@@ -146,20 +118,11 @@ public class FuseErrandsTxt {
 		public int rename(String oldName, String newName) {
 			System.out.println("SRIDHAR App.rename() mv " + oldName + " " + newName);
 			return 0;
-
 		}
 
 		@Override
 		public int write(final String path, final ByteBuffer buf, final long bufSize, final long writeOffset,
 				final FileInfoWrapper wrapper) {
-//			String toBeWritten = new String(buf.array(), StandardCharsets.UTF_8);
-//			contents2 = toBeWritten;
-//			System.out.println("FuseErrandsTxt.HelloFS1.write() " + toBeWritten);
-			return doWrite(buf, bufSize, writeOffset);
-		}
-		
-		private int doWrite(final ByteBuffer buffer, final long bufSize, final long writeOffset)
-		{
 			final int maxWriteIndex = (int) (writeOffset + bufSize);
 			final byte[] bytesToWrite = new byte[(int) bufSize];
 			synchronized (this) {
@@ -169,7 +132,7 @@ public class FuseErrandsTxt {
 					newContents.put(contents);
 					contents = newContents;
 				}
-				buffer.get(bytesToWrite, 0, (int) bufSize);
+				buf.get(bytesToWrite, 0, (int) bufSize);
 				contents.position((int) writeOffset);
 				contents.put(bytesToWrite);
 				contents2 = new String(bytesToWrite, StandardCharsets.UTF_8);
