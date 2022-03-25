@@ -120,15 +120,16 @@ public class FuseErrandsTxt {
 		}
 
 		private String dir2Txt(String property, String indentation) {
-			String contents = "dir2Txt";
+			String contents = "";
 			File dir = new File(property);
 			List<File> files = Arrays.stream(Objects.requireNonNull(dir.listFiles())).collect(Collectors.toList());
 			for (File f : files) {
 				System.out.println("FuseErrandsTxt.dir2Txt() " + f.getAbsolutePath());
 				if (f.isDirectory()) {
-//					contents += dir2Txt(f.getAbsolutePath(), indentation + "\t");
-					contents += f.getName() + "\n";
+					contents += indentation + f.getName() + "\n";
+					contents += dir2Txt(f.getAbsolutePath(), indentation + "\t");
 				} else if (f.isFile()) {
+					System.err.println("FuseErrandsTxt.HelloFS1.dir2Txt() - Unimplemented");
 				}
 			}
 			return contents;
