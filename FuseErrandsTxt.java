@@ -6,14 +6,18 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -28,144 +32,154 @@ import net.fusejna.util.FuseFilesystemAdapterFull;
 
 // 2022-03: going forward, I'm using Java 11. No neeed for groovy anymore
 // https://github.com/EtiennePerot/fuse-jna/blob/master/src/main/java/net/fusejna/util/FuseFilesystemAdapterFull.java
-public class FuseErrandsTxt extends FuseFilesystemAdapterFull {
+public class FuseErrandsTxt {
 
 	private static Map<String, String> displayNameOfChildToParent = new HashMap<>();
 
-
 	public static void main(String[] args) throws FuseException, IOException {
 		System.out.println("App.main() 1");
-		if (args.length == 1) {
-			new FuseErrandsTxt().log(true).mount(args[0]);
-		} else {
-			System.err.println("Usage: HelloFS <mountpoint>");
-			String string2 = System.getProperty("dir");
-			String string = string2;// "family_tree";
+		System.err.println("Usage: HelloFS <mountpoint>");
+		String out = System.getProperty("out", "/tmp/errands/");
 //			new ProcessBuilder().command("diskutil", "unmount", string2).inheritIO().start();
-			try {
-				Path p = Paths.get(string2);
-				System.err.println(p);
-				Files.createDirectory(p);
-			} catch (FileAlreadyExistsException e) {
+		try {
+			Path p = Paths.get(out);
+			System.err.println(p);
+			Files.createDirectory(p);
+		} catch (FileAlreadyExistsException e) {
 //				System.out.println("App.main() 2");
 //				System.exit(-1);
-			}
-			System.out.println("App.main() 3");
-
-			new Thread() {
-
-				@SuppressWarnings("resource")
-				@Override
-				public void run() {
-					System.out.println("App.main.run() 1");
-					File myObj = new File(System.getProperty("gedcom"));
-					Scanner myReader;
-
-					try {
-						System.out.println("App.main.run() 2");
-						myReader = new Scanner(myObj);
-
-						System.out.println("App.main.run() 3");
-					} catch (FileNotFoundException e) {
-						throw new RuntimeException(e);
-					}
-					System.out.println("App.main.run() 4");
-					while (myReader.hasNextLine()) {
-					}
-					myReader.close();
-					// I24 - root
-				}
-
-			}.run();
-			System.out.println("App.main() 5");
-			new FuseErrandsTxt().log(false).mount(string);
 		}
+		System.out.println("App.main() 3");
+
+//		new Thread() {
+//
+//			@SuppressWarnings("resource")
+//			@Override
+//			public void run() {
+//				System.out.println("App.main.run() 1");
+//				String dirPath = System.getProperty("in", System.getProperty("user.home") + "/sarnobat.git/errands/");
+//
+//				String ret = dir2Txt(dirPath, "");
+//			}
+//
+//			@Deprecated
+//			private String dir2Txt(String property, String indentation) {
+//				String contents = "";
+//				File dir = new File(property);
+//				List<File> files = Arrays.stream(Objects.requireNonNull(dir.listFiles())).collect(Collectors.toList());
+//				for (File f : files) {
+//					System.out.println("FuseErrandsTxt.main() " + f.getAbsolutePath());
+//					if (f.isDirectory()) {
+//						contents += dir2Txt(f.getAbsolutePath(), indentation + "\t");
+//					} else if (f.isFile()) {
+//						contents += f.getName() + "\n";
+//					}
+//				}
+//				return contents;
+//			}
+//
+//		}.run();
+		String in = System.getProperty("in", System.getProperty("user.home") + "/sarnobat.git/errands/");
+		System.out.println("App.main() 5");
+		new My(in, out);
 	}
 
+	static class My extends FuseFilesystemAdapterFull {
+		@Deprecated
+		private static final String CONTENTS = "Hello World\n";
+		private final String in;
+		private final String out;
 
-	private static final String FILENAME = "/hello1.txt";
-	private static final String CONTENTS = "Hello World\n";
-
-	@Override
-	public int getattr(String path, StatWrapper stat) {
-		try {
-			stat.setAllTimesMillis(System.currentTimeMillis());
-			// System.out.println("SRIDHAR App.getattr() " + path);
-			if (path.equals(File.separator)) { // Root directory
-				stat.setMode(NodeType.DIRECTORY);
-				return 0;
+		public My(String in, String out) {
+			this.in = in;
+			this.out = out;
+			try {
+				this.log(true).mount(in);
+			} catch (FuseException e) {
+				e.printStackTrace();
+				System.exit(-1);
 			}
-			if (path.contains(".txt")) { // hello.txt
-				stat.setMode(NodeType.FILE).size(CONTENTS.length());
-				return 0;
-			} else {
-				String lastPartOf = getLastPartOf(path);
-				if (displayNameToIndividualWithSpouse.keySet().contains(lastPartOf)) {
+		}
+
+		@Override
+		public int getattr(String path, StatWrapper stat) {
+			try {
+				stat.setAllTimesMillis(System.currentTimeMillis());
+				// System.out.println("SRIDHAR App.getattr() " + path);
+				if (path.equals(File.separator)) { // Root directory
 					stat.setMode(NodeType.DIRECTORY);
 					return 0;
-				} else {
+				}
+				if (path.contains(".txt")) { // hello.txt
 					stat.setMode(NodeType.FILE).size(CONTENTS.length());
 					return 0;
+				} else {
+					stat.setMode(NodeType.DIRECTORY);
+					return 0;
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				return ErrorCodes.ENOENT();
+			}
+		}
+
+		private String getLastPartOf(String path) {
+			Path path2 = Paths.get(path);
+			// String string = path2.getName(path2.getNameCount()).toString();
+			String string = path2.getFileName().toString();
+			// System.out.println("SRIDHAR App.getLastPartOf() " + string);
+			return string;
+		}
+
+		@Override
+		public int read(String path, ByteBuffer buffer, long size, long offset, final FileInfoWrapper info) {
+			System.err.println("FuseErrandsTxt.read() path = " + path);
+			// Compute substring that we are being asked to read
+			final String fileContents = dir2Txt(in, out);
+			buffer.put(fileContents.getBytes());
+			// System.out.println("SRIDHAR App.read() " + fileContents);
+			return fileContents.getBytes().length;
+		}
+
+		private String dir2Txt(String property, String indentation) {
+			String contents = "";
+			File dir = new File(property);
+			List<File> files = Arrays.stream(Objects.requireNonNull(dir.listFiles())).collect(Collectors.toList());
+			for (File f : files) {
+				System.out.println("FuseErrandsTxt.dir2Txt() " + f.getAbsolutePath());
+				if (f.isDirectory()) {
+					contents += dir2Txt(f.getAbsolutePath(), indentation + "\t");
+				} else if (f.isFile()) {
+					contents += f.getName() + "\n";
 				}
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			return ErrorCodes.ENOENT();
+			return contents;
 		}
-	}
 
-	private String getLastPartOf(String path) {
-		Path path2 = Paths.get(path);
-		// String string = path2.getName(path2.getNameCount()).toString();
-		String string = path2.getFileName().toString();
-		// System.out.println("SRIDHAR App.getLastPartOf() " + string);
-		return string;
-	}
-
-//	private static boolean isDirectory(String path) {
-//		if (displayNameOfChildToParent.values().contains(path.replace("/", ""))) {
-//			return true;
-//		}
-//		return false;
-//	}
-
-	@Override
-	public int read(String path, ByteBuffer buffer, long size, long offset, final FileInfoWrapper info) {
-		// Compute substring that we are being asked to read
-		final String fileContents = CONTENTS.substring((int) offset,
-				(int) Math.max(offset, Math.min(CONTENTS.length() - offset, offset + size)));
-		buffer.put(fileContents.getBytes());
-		// System.out.println("SRIDHAR App.read() " + fileContents);
-		return fileContents.getBytes().length;
-	}
-
-	@Override
-	public int readdir(String path, DirectoryFiller filler) {
-
-		// filler.add(FILENAME);
-		// filler.add("sridhar.txt");
-		try {
-			// System.out.println("SRIDHAR App.readdir() " + path);
-			if (path.equals("/")) {
-				// String key = "I31";
-				String string = individual.toString();
-				filler.add(string);
-			} else {
-				String s = Paths.get(path).getFileName().toString();
-				System.out.println("SRIDHAR App.readdir() " + s);
+		@Override
+		public int readdir(String path, DirectoryFiller filler) {
+			System.out.println("SRIDHAR App.readdir() " + path);
+			try {
+				if (path.equals("/")) {
+					System.out.println("FuseErrandsTxt.My.readdir() 1");
+					filler.add("errands.txt");
+				} else {
+					System.out.println("FuseErrandsTxt.My.readdir() 2");
+					String s = Paths.get(path).getFileName().toString();
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				System.exit(-1);
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.exit(-1);
-			// return -1;
+			return 0;
 		}
-		return 0;
+
+		@Override
+		public int rename(String oldName, String newName) {
+			System.out.println("SRIDHAR App.rename() mv " + oldName + " " + newName);
+			return 0;
+
+		}
 	}
 
-	@Override
-	public int rename(String oldName, String newName) {
-		System.out.println("SRIDHAR App.rename() mv " + oldName + " " + newName);
-		return 0;
-
-	}
 }
