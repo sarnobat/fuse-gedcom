@@ -9,7 +9,7 @@ import net.fusejna.StructStat.StatWrapper;
 import net.fusejna.types.TypeMode.NodeType;
 import net.fusejna.util.FuseFilesystemAdapterFull;
 
-public class HelloFS extends FuseFilesystemAdapterFull {
+public class HelloFS {
 	public static void main(final String... args) throws FuseException {
 		if (args.length != 1) {
 			System.err.println("Usage: HelloFS <mountpoint>");

@@ -85,6 +85,8 @@ public class FuseErrandsTxt {
 	}
 
 	static class My extends FuseFilesystemAdapterFull {
+		final String filename = "/hello.txt";
+		final String contents = "Hello World!\n";
 		@Deprecated
 		private static final String CONTENTS = "Hello World\n";
 		private final String in;
@@ -102,7 +104,20 @@ public class FuseErrandsTxt {
 		}
 
 		@Override
-		public int getattr(String path, StatWrapper stat) {
+		public int getattr(final String path, final StatWrapper stat) {
+			if (path.equals(File.separator)) { // Root directory
+				stat.setMode(NodeType.DIRECTORY);
+				return 0;
+			}
+			if (path.equals(filename)) { // hello.txt
+				stat.setMode(NodeType.FILE).size(contents.length());
+				return 0;
+			}
+			return -ErrorCodes.ENOENT();
+		}
+
+//		@Override
+		public int getattr1(String path, StatWrapper stat) {
 			try {
 				stat.setAllTimesMillis(System.currentTimeMillis());
 				// System.out.println("SRIDHAR App.getattr() " + path);
@@ -132,7 +147,13 @@ public class FuseErrandsTxt {
 		}
 
 		@Override
-		public int read(String path, ByteBuffer buffer, long size, long offset, final FileInfoWrapper info) {
+		public int readdir(final String path, final DirectoryFiller filler) {
+			filler.add(filename);
+			return 0;
+		}
+
+//		@Override
+		public int read1(String path, ByteBuffer buffer, long size, long offset, final FileInfoWrapper info) {
 			System.err.println("FuseErrandsTxt.read() path = " + path);
 			// Compute substring that we are being asked to read
 			final String fileContents = dir2Txt(in, out);
@@ -157,7 +178,7 @@ public class FuseErrandsTxt {
 		}
 
 		@Override
-		public int readdir(String path, DirectoryFiller filler) {
+		public int readdir1(String path, DirectoryFiller filler) {
 			System.out.println("SRIDHAR App.readdir() " + path);
 			try {
 				if (path.equals("/")) {
