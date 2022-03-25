@@ -161,14 +161,25 @@ public class FuseErrandsTxt {
 			}
 		}
 
-		@Override
-		public int read(final String path, final ByteBuffer buffer, final long size, final long offset,
+//		@Override
+		public int read2(final String path, final ByteBuffer buffer, final long size, final long offset,
 				final FileInfoWrapper info) {
 			// Compute substring that we are being asked to read
-			final String s = contents.substring((int) offset,
+			final String fileContents = contents.substring((int) offset,
 					(int) Math.max(offset, Math.min(contents.length() - offset, offset + size)));
-			buffer.put(s.getBytes());
-			return s.getBytes().length;
+			System.out.println("SRIDHAR App.read1() " + fileContents);
+			buffer.put(fileContents.getBytes());
+			return fileContents.getBytes().length;
+		}
+
+		@Override
+		public int read(String path, ByteBuffer buffer, long size, long offset, final FileInfoWrapper info) {
+			System.err.println("FuseErrandsTxt.read2() path = " + path);
+			// Compute substring that we are being asked to read
+			final String fileContents = dir2Txt(in, out);
+			buffer.put(fileContents.getBytes());
+			 System.out.println("SRIDHAR App.read2() " + fileContents);
+			return fileContents.getBytes().length;
 		}
 
 		private String getLastPartOf(String path) {
@@ -186,24 +197,14 @@ public class FuseErrandsTxt {
 			return 0;
 		}
 
-//		@Override
-		public int read1(String path, ByteBuffer buffer, long size, long offset, final FileInfoWrapper info) {
-			System.err.println("FuseErrandsTxt.read() path = " + path);
-			// Compute substring that we are being asked to read
-			final String fileContents = dir2Txt(in, out);
-			buffer.put(fileContents.getBytes());
-			// System.out.println("SRIDHAR App.read() " + fileContents);
-			return fileContents.getBytes().length;
-		}
-
 		private String dir2Txt(String property, String indentation) {
-			String contents = "";
+			String contents = "dir2Txt";
 			File dir = new File(property);
 			List<File> files = Arrays.stream(Objects.requireNonNull(dir.listFiles())).collect(Collectors.toList());
 			for (File f : files) {
 				System.out.println("FuseErrandsTxt.dir2Txt() " + f.getAbsolutePath());
 				if (f.isDirectory()) {
-					contents += dir2Txt(f.getAbsolutePath(), indentation + "\t");
+//					contents += dir2Txt(f.getAbsolutePath(), indentation + "\t");
 				} else if (f.isFile()) {
 					contents += f.getName() + "\n";
 				}
