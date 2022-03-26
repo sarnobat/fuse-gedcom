@@ -1,3 +1,8 @@
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -19,7 +24,22 @@ public class MemoryFS {
 			System.err.println("Usage: MemoryFS <mountpoint>");
 			System.exit(1);
 		}
-		new MemoryFSAdapter(args[0], "errands.txt", "Hello there, feel free to look around.\n");
+		try {
+			Process process = new ProcessBuilder().command("bash" ,"-c","find /Users/sarnobat/sarnobat.git/errands/ | python3 /Users/sarnobat/src.git/python/yamlfs/yamlfs_stdin.py").start();
+			BufferedInputStream bis = new BufferedInputStream(process.getInputStream());
+			Reader reader = new InputStreamReader(bis);
+			BufferedReader br = new BufferedReader(reader);
+
+			String line;
+			String all = "";
+			while ((line = br.readLine()) != null) {
+				System.out.println("MemoryFS.main() " + line);
+				all += line + "\n";
+			}
+			new MemoryFSAdapter(args[0], "errands.txt", all);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private static class MemoryFSAdapter extends FuseFilesystemAdapterAssumeImplemented {
