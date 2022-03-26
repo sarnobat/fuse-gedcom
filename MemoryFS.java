@@ -12,7 +12,19 @@ import net.fusejna.types.TypeMode.ModeWrapper;
 import net.fusejna.types.TypeMode.NodeType;
 import net.fusejna.util.FuseFilesystemAdapterAssumeImplemented;
 
-public class MemoryFS extends FuseFilesystemAdapterAssumeImplemented
+public class MemoryFS {
+
+	public static void main(final String... args) throws FuseException
+	{
+		if (args.length != 1) {
+			System.err.println("Usage: MemoryFS <mountpoint>");
+			System.exit(1);
+		}
+		new MemoryFSAdapter(args[0]);
+	}
+
+
+static class MemoryFSAdapter extends FuseFilesystemAdapterAssumeImplemented
 {
 	private final class MemoryDirectory extends MemoryPath
 	{
@@ -215,19 +227,11 @@ public class MemoryFS extends FuseFilesystemAdapterAssumeImplemented
 		}
 	}
 
-	public static void main(final String... args) throws FuseException
-	{
-		if (args.length != 1) {
-			System.err.println("Usage: MemoryFS <mountpoint>");
-			System.exit(1);
-		}
-		new MemoryFS().log(true).mount(args[0]);
-	}
 
 	private final MemoryDirectory rootDirectory = new MemoryDirectory("");
 
-	public MemoryFS()
-	{
+
+	MemoryFSAdapter(String location) {
 		// Sprinkle some files around
 		rootDirectory.add(new MemoryFile("Sample file.txt", "Hello there, feel free to look around.\n"));
 		rootDirectory.add(new MemoryDirectory("Sample directory"));
@@ -238,6 +242,13 @@ public class MemoryFS extends FuseFilesystemAdapterAssumeImplemented
 		final MemoryDirectory nestedDirectory = new MemoryDirectory("Sample nested directory");
 		dirWithFiles.add(nestedDirectory);
 		nestedDirectory.add(new MemoryFile("So deep.txt", "Man, I'm like, so deep in this here file structure.\n"));
+		try {
+			this.log(true).mount(location);
+		} catch (FuseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 	}
 
 	@Override
@@ -411,4 +422,5 @@ public class MemoryFS extends FuseFilesystemAdapterAssumeImplemented
 		}
 		return ((MemoryFile) p).write(buf, bufSize, writeOffset);
 	}
+}
 }
