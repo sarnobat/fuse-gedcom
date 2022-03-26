@@ -19,7 +19,7 @@ import net.fusejna.util.FuseFilesystemAdapterAssumeImplemented;
 
 public class FuseErrandsTxt {
 
-	public static void main(final String... args) throws FuseException {
+	public static void main(String... args) throws FuseException {
 		if (args.length != 1) {
 			System.err.println("Usage: MemoryFS <mountpoint>");
 			System.exit(1);
@@ -70,7 +70,7 @@ public class FuseErrandsTxt {
 		private final class RootDirectory extends MemoryPath {
 			private final List<MemoryPath> contents = new ArrayList<MemoryPath>();
 
-			private RootDirectory(final String name) {
+			private RootDirectory(String name) {
 				super(name);
 			}
 
@@ -84,16 +84,16 @@ public class FuseErrandsTxt {
 				}
 				synchronized (this) {
 					if (!path.contains("/")) {
-						for (final MemoryPath p : contents) {
+						for (MemoryPath p : contents) {
 							if (p.name.equals(path)) {
 								return p;
 							}
 						}
 						return null;
 					}
-					final String nextName = path.substring(0, path.indexOf("/"));
-					final String rest = path.substring(path.indexOf("/"));
-					for (final MemoryPath p : contents) {
+					String nextName = path.substring(0, path.indexOf("/"));
+					String rest = path.substring(path.indexOf("/"));
+					for (MemoryPath p : contents) {
 						if (p.name.equals(nextName)) {
 							return p.find(rest);
 						}
@@ -103,7 +103,7 @@ public class FuseErrandsTxt {
 			}
 
 			@Override
-			protected void getattr(final StatWrapper stat) {
+			protected void getattr(StatWrapper stat) {
 				stat.setMode(NodeType.DIRECTORY);
 			}
 		}
@@ -111,23 +111,23 @@ public class FuseErrandsTxt {
 		private final class ErrandsTxtFile extends MemoryPath {
 			private ByteBuffer contents = ByteBuffer.allocate(0);
 
-			private ErrandsTxtFile(final String name, final RootDirectory parent) {
-				super(name, parent);
+			private ErrandsTxtFile(String filename, RootDirectory rootDir) {
+				super(filename, rootDir);
 			}
 
-			public ErrandsTxtFile(String name, ByteBuffer bb) {
+			public ErrandsTxtFile(String name, ByteBuffer contentsBytes) {
 				super(name);
-				contents = bb;
+				this.contents = contentsBytes;
 			}
 
 			@Override
-			protected void getattr(final StatWrapper stat) {
+			protected void getattr(StatWrapper stat) {
 				stat.setMode(NodeType.FILE).size(contents.capacity());
 			}
 
-			private int read(final ByteBuffer buffer, final long size, final long offset) {
-				final int bytesToRead = (int) Math.min(contents.capacity() - offset, size);
-				final byte[] bytesRead = new byte[bytesToRead];
+			private int read(ByteBuffer buffer, long size, long offset) {
+				int bytesToRead = (int) Math.min(contents.capacity() - offset, size);
+				byte[] bytesRead = new byte[bytesToRead];
 				synchronized (this) {
 					contents.position((int) offset);
 					contents.get(bytesRead, 0, bytesToRead);
@@ -137,7 +137,7 @@ public class FuseErrandsTxt {
 				return bytesToRead;
 			}
 
-			private synchronized void truncate(final long size) {
+			private synchronized void truncate(long size) {
 				if (size < contents.capacity()) {
 					// Need to create a new, smaller buffer
 					ByteBuffer newContents = ByteBuffer.allocate((int) size);
@@ -148,9 +148,9 @@ public class FuseErrandsTxt {
 				}
 			}
 
-			private int write(final ByteBuffer buffer, final long bufSize, final long writeOffset) {
-				final int maxWriteIndex = (int) (writeOffset + bufSize);
-				final byte[] bytesToWrite = new byte[(int) bufSize];
+			private int write(ByteBuffer buffer, long bufSize, long writeOffset) {
+				int maxWriteIndex = (int) (writeOffset + bufSize);
+				byte[] bytesToWrite = new byte[(int) bufSize];
 				synchronized (this) {
 					if (maxWriteIndex > contents.capacity()) {
 						// Need to create a new, larger buffer
@@ -192,12 +192,12 @@ public class FuseErrandsTxt {
 		}
 
 		@Override
-		public int access(final String path, final int access) {
+		public int access(String path, int access) {
 			return 0;
 		}
 
 		@Override
-		public int create(final String path, final ModeWrapper mode, final FileInfoWrapper info) {
+		public int create(String path, ModeWrapper mode, FileInfoWrapper info) {
 			if (getPath(path) != null) {
 				return -ErrorCodes.EEXIST();
 			}
@@ -210,12 +210,12 @@ public class FuseErrandsTxt {
 			return -ErrorCodes.ENOENT();
 		}
 
-		private MemoryPath getParentPath(final String path) {
+		private MemoryPath getParentPath(String path) {
 			return rootDirectory.find(path.substring(0, path.lastIndexOf("/")));
 		}
 
 		@Override
-		public int getattr(final String path, final StatWrapper stat) {
+		public int getattr(String path, StatWrapper stat) {
 			MemoryPath p = getPath(path);
 			if (p != null) {
 				p.getattr(stat);
@@ -234,12 +234,12 @@ public class FuseErrandsTxt {
 			return path.substring(path.lastIndexOf("/") + 1);
 		}
 
-		private MemoryPath getPath(final String path) {
+		private MemoryPath getPath(String path) {
 			return rootDirectory.find(path);
 		}
 
 		@Override
-		public int open(final String path, final FileInfoWrapper info) {
+		public int open(String path, FileInfoWrapper info) {
 			return 0;
 		}
 
@@ -256,7 +256,7 @@ public class FuseErrandsTxt {
 		}
 
 		@Override
-		public int readdir(final String path, final DirectoryFiller filler) {
+		public int readdir(String path, DirectoryFiller filler) {
 			MemoryPath p = getPath(path);
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
@@ -265,7 +265,7 @@ public class FuseErrandsTxt {
 				return -ErrorCodes.ENOTDIR();
 			}
 			FuseErrandsTxt.MemoryFSAdapter.RootDirectory memoryDirectory = (RootDirectory) p;
-			for (final FuseErrandsTxt.MemoryFSAdapter.MemoryPath p1 : memoryDirectory.contents) {
+			for (FuseErrandsTxt.MemoryFSAdapter.MemoryPath p1 : memoryDirectory.contents) {
 				filler.add(p1.name);
 			}
 			return 0;
