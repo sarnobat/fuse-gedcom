@@ -25,6 +25,8 @@ public class FuseErrandsTxt {
 			System.exit(1);
 		}
 		try {
+			// Add the inode number
+			// | xargs --delimiter '\n' --max-args=1 ls -id
 			Process process = new ProcessBuilder()
 					.command("bash", "-c", "find /Users/sarnobat/sarnobat.git/errands/ -type d "
 							+ "| python3 /Users/sarnobat/src.git/python/yamlfs/yamlfs_stdin.py")
@@ -59,7 +61,7 @@ public class FuseErrandsTxt {
 			}
 			ByteBuffer wrap = ByteBuffer.wrap(bytes);
 			ErrandsTxtFile errandsTxtFile = new ErrandsTxtFile(filename, wrap);
-			rootDirectory.contents.add((FuseErrandsTxt.MemoryFSAdapter.MemoryPath) errandsTxtFile);
+			rootDirectory.files.add((FuseErrandsTxt.MemoryFSAdapter.MemoryPath) errandsTxtFile);
 			try {
 				this.log(true).mount(location);
 			} catch (FuseException e) {
@@ -67,25 +69,39 @@ public class FuseErrandsTxt {
 			}
 		}
 
+		@Deprecated
 		private final class RootDirectory extends MemoryPath {
-			private final List<MemoryPath> contents = new ArrayList<MemoryPath>();
+			private final List<MemoryPath> files = new ArrayList<MemoryPath>();
+
+			private String name;
 
 			private RootDirectory(String name) {
-				super(name);
+				this.name = name;
+			}
+
+			protected MemoryPath find2(String path) {
+				while (path.startsWith("/")) {
+					path = path.substring(1);
+				}
+				if (path.equals(name) || path.isEmpty()) {
+					return this;
+				}
+				return null;
 			}
 
 			@Override
 			protected MemoryPath find(String path) {
-				if (super.find(path) != null) {
-					return super.find(path);
+				if (find2(path) != null) {
+					return find2(path);
 				}
 				while (path.startsWith("/")) {
 					path = path.substring(1);
 				}
 				synchronized (this) {
 					if (!path.contains("/")) {
-						for (MemoryPath p : contents) {
-							if (p.name.equals(path)) {
+						for (MemoryPath p : files) {
+							String name2 = ((ErrandsTxtFile) p).name;
+							if (name2.equals(path)) {
 								return p;
 							}
 						}
@@ -93,7 +109,7 @@ public class FuseErrandsTxt {
 					}
 					String nextName = path.substring(0, path.indexOf("/"));
 					String rest = path.substring(path.indexOf("/"));
-					for (MemoryPath p : contents) {
+					for (MemoryPath p : files) {
 						if (p.name.equals(nextName)) {
 							return p.find(rest);
 						}
@@ -102,25 +118,30 @@ public class FuseErrandsTxt {
 				return null;
 			}
 
-			@Override
+//			@Override
 			protected void getattr(StatWrapper stat) {
 				stat.setMode(NodeType.DIRECTORY);
 			}
 		}
 
 		private final class ErrandsTxtFile extends MemoryPath {
+			private String name;
 			private ByteBuffer contents = ByteBuffer.allocate(0);
 
 			private ErrandsTxtFile(String filename, RootDirectory rootDir) {
-				super(filename, rootDir);
+				if (filename == null) {
+					System.out.println("FuseErrandsTxt.MemoryFSAdapter.ErrandsTxtFile.ErrandsTxtFile() develoepr error");
+					System.exit(-1);
+				}
+				name = filename;
 			}
 
 			public ErrandsTxtFile(String name, ByteBuffer contentsBytes) {
-				super(name);
 				this.contents = contentsBytes;
+				this.name = name;
 			}
 
-			@Override
+//			@Override
 			protected void getattr(StatWrapper stat) {
 				stat.setMode(NodeType.FILE).size(contents.capacity());
 			}
@@ -167,17 +188,12 @@ public class FuseErrandsTxt {
 			}
 		}
 
+		@Deprecated // don't use superclasses
 		private abstract class MemoryPath {
+
 			private String name;
 
-			private MemoryPath(String name) {
-				this(name, null);
-			}
-
-			private MemoryPath(String name, RootDirectory parent) {
-				this.name = name;
-			}
-
+			@Deprecated
 			protected MemoryPath find(String path) {
 				while (path.startsWith("/")) {
 					path = path.substring(1);
@@ -188,7 +204,7 @@ public class FuseErrandsTxt {
 				return null;
 			}
 
-			protected abstract void getattr(StatWrapper stat);
+//			protected abstract void getattr(StatWrapper stat);
 		}
 
 		@Override
@@ -204,7 +220,7 @@ public class FuseErrandsTxt {
 			MemoryPath parent = getParentPath(path);
 			if (parent instanceof RootDirectory) {
 				FuseErrandsTxt.MemoryFSAdapter.RootDirectory memoryDirectory = (RootDirectory) parent;
-				memoryDirectory.contents.add(new ErrandsTxtFile(getLastComponent(path), memoryDirectory));
+				memoryDirectory.files.add(new ErrandsTxtFile(getLastComponent(path), memoryDirectory));
 				return 0;
 			}
 			return -ErrorCodes.ENOENT();
@@ -218,7 +234,12 @@ public class FuseErrandsTxt {
 		public int getattr(String path, StatWrapper stat) {
 			MemoryPath p = getPath(path);
 			if (p != null) {
-				p.getattr(stat);
+				if (p instanceof ErrandsTxtFile) {
+					((ErrandsTxtFile) p).getattr(stat);
+				} else {
+					((RootDirectory) p).getattr(stat);
+				}
+
 				return 0;
 			}
 			return -ErrorCodes.ENOENT();
@@ -265,7 +286,7 @@ public class FuseErrandsTxt {
 				return -ErrorCodes.ENOTDIR();
 			}
 			FuseErrandsTxt.MemoryFSAdapter.RootDirectory memoryDirectory = (RootDirectory) p;
-			for (FuseErrandsTxt.MemoryFSAdapter.MemoryPath p1 : memoryDirectory.contents) {
+			for (FuseErrandsTxt.MemoryFSAdapter.MemoryPath p1 : memoryDirectory.files) {
 				filler.add(p1.name);
 			}
 			return 0;
