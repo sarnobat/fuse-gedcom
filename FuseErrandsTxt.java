@@ -17,7 +17,7 @@ import net.fusejna.types.TypeMode.ModeWrapper;
 import net.fusejna.types.TypeMode.NodeType;
 import net.fusejna.util.FuseFilesystemAdapterAssumeImplemented;
 
-public class MemoryFS {
+public class FuseErrandsTxt {
 
 	public static void main(final String... args) throws FuseException {
 		if (args.length != 1) {
@@ -25,7 +25,8 @@ public class MemoryFS {
 			System.exit(1);
 		}
 		try {
-			Process process = new ProcessBuilder().command("bash" ,"-c","find /Users/sarnobat/sarnobat.git/errands/ | python3 /Users/sarnobat/src.git/python/yamlfs/yamlfs_stdin.py").start();
+			Process process = new ProcessBuilder().command("bash", "-c", "find /Users/sarnobat/sarnobat.git/errands/ -type d "
+					+ "| python3 /Users/sarnobat/src.git/python/yamlfs/yamlfs_stdin.py").start();
 			BufferedInputStream bis = new BufferedInputStream(process.getInputStream());
 			Reader reader = new InputStreamReader(bis);
 			BufferedReader br = new BufferedReader(reader);
@@ -50,7 +51,7 @@ public class MemoryFS {
 			byte[] contents = getContents(fileContents);
 			ByteBuffer wrap = ByteBuffer.wrap(contents);
 			ErrandsTxtFile errandsTxtFile = new ErrandsTxtFile(filename, fileContents, contents, wrap);
-			rootDirectory.contents.add((MemoryFS.MemoryFSAdapter.MemoryPath) errandsTxtFile);
+			rootDirectory.contents.add((FuseErrandsTxt.MemoryFSAdapter.MemoryPath) errandsTxtFile);
 			try {
 				this.log(true).mount(location);
 			} catch (FuseException e) {
@@ -204,7 +205,7 @@ public class MemoryFS {
 			}
 			MemoryPath parent = getParentPath(path);
 			if (parent instanceof MemoryDirectory) {
-				MemoryFS.MemoryFSAdapter.MemoryDirectory memoryDirectory = (MemoryDirectory) parent;
+				FuseErrandsTxt.MemoryFSAdapter.MemoryDirectory memoryDirectory = (MemoryDirectory) parent;
 				memoryDirectory.contents.add(new ErrandsTxtFile(getLastComponent(path), memoryDirectory));
 				return 0;
 			}
@@ -266,8 +267,8 @@ public class MemoryFS {
 			if (!(p instanceof MemoryDirectory)) {
 				return -ErrorCodes.ENOTDIR();
 			}
-			MemoryFS.MemoryFSAdapter.MemoryDirectory memoryDirectory = (MemoryDirectory) p;
-			for (final MemoryFS.MemoryFSAdapter.MemoryPath p1 : memoryDirectory.contents) {
+			FuseErrandsTxt.MemoryFSAdapter.MemoryDirectory memoryDirectory = (MemoryDirectory) p;
+			for (final FuseErrandsTxt.MemoryFSAdapter.MemoryPath p1 : memoryDirectory.contents) {
 				filler.add(p1.name);
 			}
 			return 0;
