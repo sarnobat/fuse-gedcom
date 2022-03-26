@@ -22,7 +22,20 @@ public class MemoryFS {
 		new MemoryFSAdapter(args[0]);
 	}
 
-	static class MemoryFSAdapter extends FuseFilesystemAdapterAssumeImplemented {
+	private static class MemoryFSAdapter extends FuseFilesystemAdapterAssumeImplemented {
+
+		private final MemoryDirectory rootDirectory = new MemoryDirectory("");
+
+		MemoryFSAdapter(String location) {
+			rootDirectory.add(new MemoryFile("errands.txt", "Hello there, feel free to look around.\n"));
+			try {
+				this.log(true).mount(location);
+			} catch (FuseException e) {
+				e.printStackTrace();
+			}
+
+		}
+
 		private final class MemoryDirectory extends MemoryPath {
 			private final List<MemoryPath> contents = new ArrayList<MemoryPath>();
 
@@ -36,11 +49,6 @@ public class MemoryFS {
 
 			public synchronized void add(final MemoryPath p) {
 				contents.add(p);
-				p.parent = this;
-			}
-
-			private synchronized void deleteChild(final MemoryPath child) {
-				contents.remove(child);
 			}
 
 			@Override
@@ -74,10 +82,6 @@ public class MemoryFS {
 			@Override
 			protected void getattr(final StatWrapper stat) {
 				stat.setMode(NodeType.DIRECTORY);
-			}
-
-			private synchronized void mkdir(final String lastComponent) {
-				contents.add(new MemoryDirectory(lastComponent, this));
 			}
 
 			public synchronized void mkfile(final String lastComponent) {
@@ -161,7 +165,6 @@ public class MemoryFS {
 
 		private abstract class MemoryPath {
 			private String name;
-			private MemoryDirectory parent;
 
 			private MemoryPath(final String name) {
 				this(name, null);
@@ -169,14 +172,6 @@ public class MemoryFS {
 
 			private MemoryPath(final String name, final MemoryDirectory parent) {
 				this.name = name;
-				this.parent = parent;
-			}
-
-			private synchronized void delete() {
-				if (parent != null) {
-					parent.deleteChild(this);
-					parent = null;
-				}
 			}
 
 			protected MemoryPath find(String path) {
@@ -190,28 +185,8 @@ public class MemoryFS {
 			}
 
 			protected abstract void getattr(StatWrapper stat);
-
-			private void rename(String newName) {
-				while (newName.startsWith("/")) {
-					newName = newName.substring(1);
-				}
-				name = newName;
-			}
 		}
 
-		private final MemoryDirectory rootDirectory = new MemoryDirectory("");
-
-		MemoryFSAdapter(String location) {
-			// Sprinkle some files around
-			rootDirectory.add(new MemoryFile("Sample file.txt", "Hello there, feel free to look around.\n"));
-			try {
-				this.log(true).mount(location);
-			} catch (FuseException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-
-		}
 
 		@Override
 		public int access(final String path, final int access) {
@@ -260,19 +235,6 @@ public class MemoryFS {
 		}
 
 		@Override
-		public int mkdir(final String path, final ModeWrapper mode) {
-			if (getPath(path) != null) {
-				return -ErrorCodes.EEXIST();
-			}
-			final MemoryPath parent = getParentPath(path);
-			if (parent instanceof MemoryDirectory) {
-				((MemoryDirectory) parent).mkdir(getLastComponent(path));
-				return 0;
-			}
-			return -ErrorCodes.ENOENT();
-		}
-
-		@Override
 		public int open(final String path, final FileInfoWrapper info) {
 			return 0;
 		}
@@ -304,38 +266,6 @@ public class MemoryFS {
 		}
 
 		@Override
-		public int rename(final String path, final String newName) {
-			final MemoryPath p = getPath(path);
-			if (p == null) {
-				return -ErrorCodes.ENOENT();
-			}
-			final MemoryPath newParent = getParentPath(newName);
-			if (newParent == null) {
-				return -ErrorCodes.ENOENT();
-			}
-			if (!(newParent instanceof MemoryDirectory)) {
-				return -ErrorCodes.ENOTDIR();
-			}
-			p.delete();
-			p.rename(newName.substring(newName.lastIndexOf("/")));
-			((MemoryDirectory) newParent).add(p);
-			return 0;
-		}
-
-		@Override
-		public int rmdir(final String path) {
-			final MemoryPath p = getPath(path);
-			if (p == null) {
-				return -ErrorCodes.ENOENT();
-			}
-			if (!(p instanceof MemoryDirectory)) {
-				return -ErrorCodes.ENOTDIR();
-			}
-			p.delete();
-			return 0;
-		}
-
-		@Override
 		public int truncate(final String path, final long offset) {
 			final MemoryPath p = getPath(path);
 			if (p == null) {
@@ -350,12 +280,7 @@ public class MemoryFS {
 
 		@Override
 		public int unlink(final String path) {
-			final MemoryPath p = getPath(path);
-			if (p == null) {
-				return -ErrorCodes.ENOENT();
-			}
-			p.delete();
-			return 0;
+			return -ErrorCodes.ENOENT();
 		}
 
 		@Override
