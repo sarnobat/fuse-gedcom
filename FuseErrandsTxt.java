@@ -25,8 +25,10 @@ public class FuseErrandsTxt {
 			System.exit(1);
 		}
 		try {
-			Process process = new ProcessBuilder().command("bash", "-c", "find /Users/sarnobat/sarnobat.git/errands/ -type d "
-					+ "| python3 /Users/sarnobat/src.git/python/yamlfs/yamlfs_stdin.py").start();
+			Process process = new ProcessBuilder()
+					.command("bash", "-c", "find /Users/sarnobat/sarnobat.git/errands/ -type d "
+							+ "| python3 /Users/sarnobat/src.git/python/yamlfs/yamlfs_stdin.py")
+					.start();
 			BufferedInputStream bis = new BufferedInputStream(process.getInputStream());
 			Reader reader = new InputStreamReader(bis);
 			BufferedReader br = new BufferedReader(reader);
@@ -45,12 +47,18 @@ public class FuseErrandsTxt {
 
 	private static class MemoryFSAdapter extends FuseFilesystemAdapterAssumeImplemented {
 
-		private final MemoryDirectory rootDirectory = new MemoryDirectory("");
+		private final RootDirectory rootDirectory = new RootDirectory("");
 
 		MemoryFSAdapter(String location, String filename, String fileContents) {
-			byte[] contents = getContents(fileContents);
-			ByteBuffer wrap = ByteBuffer.wrap(contents);
-			ErrandsTxtFile errandsTxtFile = new ErrandsTxtFile(filename, fileContents, contents, wrap);
+			String text = fileContents;
+			byte[] bytes = {};
+			try {
+				bytes = text.getBytes("UTF-8");
+			} catch (UnsupportedEncodingException e1) {
+				// Not going to happen
+			}
+			ByteBuffer wrap = ByteBuffer.wrap(bytes);
+			ErrandsTxtFile errandsTxtFile = new ErrandsTxtFile(filename, wrap);
 			rootDirectory.contents.add((FuseErrandsTxt.MemoryFSAdapter.MemoryPath) errandsTxtFile);
 			try {
 				this.log(true).mount(location);
@@ -59,20 +67,10 @@ public class FuseErrandsTxt {
 			}
 		}
 
-		private byte[] getContents(final String text) {
-			byte[] bytes = {};
-			try {
-				bytes = text.getBytes("UTF-8");
-			} catch (final UnsupportedEncodingException e) {
-				// Not going to happen
-			}
-			return bytes;
-		}
-
-		private final class MemoryDirectory extends MemoryPath {
+		private final class RootDirectory extends MemoryPath {
 			private final List<MemoryPath> contents = new ArrayList<MemoryPath>();
 
-			private MemoryDirectory(final String name) {
+			private RootDirectory(final String name) {
 				super(name);
 			}
 
@@ -113,11 +111,11 @@ public class FuseErrandsTxt {
 		private final class ErrandsTxtFile extends MemoryPath {
 			private ByteBuffer contents = ByteBuffer.allocate(0);
 
-			private ErrandsTxtFile(final String name, final MemoryDirectory parent) {
+			private ErrandsTxtFile(final String name, final RootDirectory parent) {
 				super(name, parent);
 			}
 
-			public ErrandsTxtFile(final String name, final String fileContents, byte[] contents2, ByteBuffer bb) {
+			public ErrandsTxtFile(String name, ByteBuffer bb) {
 				super(name);
 				contents = bb;
 			}
@@ -142,8 +140,8 @@ public class FuseErrandsTxt {
 			private synchronized void truncate(final long size) {
 				if (size < contents.capacity()) {
 					// Need to create a new, smaller buffer
-					final ByteBuffer newContents = ByteBuffer.allocate((int) size);
-					final byte[] bytesRead = new byte[(int) size];
+					ByteBuffer newContents = ByteBuffer.allocate((int) size);
+					byte[] bytesRead = new byte[(int) size];
 					contents.get(bytesRead);
 					newContents.put(bytesRead);
 					contents = newContents;
@@ -156,7 +154,7 @@ public class FuseErrandsTxt {
 				synchronized (this) {
 					if (maxWriteIndex > contents.capacity()) {
 						// Need to create a new, larger buffer
-						final ByteBuffer newContents = ByteBuffer.allocate(maxWriteIndex);
+						ByteBuffer newContents = ByteBuffer.allocate(maxWriteIndex);
 						newContents.put(contents);
 						contents = newContents;
 					}
@@ -172,11 +170,11 @@ public class FuseErrandsTxt {
 		private abstract class MemoryPath {
 			private String name;
 
-			private MemoryPath(final String name) {
+			private MemoryPath(String name) {
 				this(name, null);
 			}
 
-			private MemoryPath(final String name, final MemoryDirectory parent) {
+			private MemoryPath(String name, RootDirectory parent) {
 				this.name = name;
 			}
 
@@ -204,8 +202,8 @@ public class FuseErrandsTxt {
 				return -ErrorCodes.EEXIST();
 			}
 			MemoryPath parent = getParentPath(path);
-			if (parent instanceof MemoryDirectory) {
-				FuseErrandsTxt.MemoryFSAdapter.MemoryDirectory memoryDirectory = (MemoryDirectory) parent;
+			if (parent instanceof RootDirectory) {
+				FuseErrandsTxt.MemoryFSAdapter.RootDirectory memoryDirectory = (RootDirectory) parent;
 				memoryDirectory.contents.add(new ErrandsTxtFile(getLastComponent(path), memoryDirectory));
 				return 0;
 			}
@@ -218,7 +216,7 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int getattr(final String path, final StatWrapper stat) {
-			final MemoryPath p = getPath(path);
+			MemoryPath p = getPath(path);
 			if (p != null) {
 				p.getattr(stat);
 				return 0;
@@ -246,9 +244,8 @@ public class FuseErrandsTxt {
 		}
 
 		@Override
-		public int read(final String path, final ByteBuffer buffer, final long size, final long offset,
-				final FileInfoWrapper info) {
-			final MemoryPath p = getPath(path);
+		public int read(String path, ByteBuffer buffer, long size, long offset, FileInfoWrapper info) {
+			MemoryPath p = getPath(path);
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
@@ -260,14 +257,14 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int readdir(final String path, final DirectoryFiller filler) {
-			final MemoryPath p = getPath(path);
+			MemoryPath p = getPath(path);
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
-			if (!(p instanceof MemoryDirectory)) {
+			if (!(p instanceof RootDirectory)) {
 				return -ErrorCodes.ENOTDIR();
 			}
-			FuseErrandsTxt.MemoryFSAdapter.MemoryDirectory memoryDirectory = (MemoryDirectory) p;
+			FuseErrandsTxt.MemoryFSAdapter.RootDirectory memoryDirectory = (RootDirectory) p;
 			for (final FuseErrandsTxt.MemoryFSAdapter.MemoryPath p1 : memoryDirectory.contents) {
 				filler.add(p1.name);
 			}
@@ -275,8 +272,8 @@ public class FuseErrandsTxt {
 		}
 
 		@Override
-		public int truncate(final String path, final long offset) {
-			final MemoryPath p = getPath(path);
+		public int truncate(String path, long offset) {
+			MemoryPath p = getPath(path);
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
@@ -288,14 +285,13 @@ public class FuseErrandsTxt {
 		}
 
 		@Override
-		public int unlink(final String path) {
+		public int unlink(String path) {
 			return -ErrorCodes.ENOENT();
 		}
 
 		@Override
-		public int write(final String path, final ByteBuffer buf, final long bufSize, final long writeOffset,
-				final FileInfoWrapper wrapper) {
-			final MemoryPath p = getPath(path);
+		public int write(String path, ByteBuffer buf, long bufSize, long writeOffset, FileInfoWrapper wrapper) {
+			MemoryPath p = getPath(path);
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
