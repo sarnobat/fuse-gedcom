@@ -1,5 +1,8 @@
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
@@ -87,7 +90,7 @@ public class FuseErrandsTxt {
 			final String fileContents = contents2;
 			System.out.println("FuseErrandsTxt.HelloFS1.read2() B fileContents = " + fileContents);
 			try {
-			buffer.put(fileContents.getBytes());
+				buffer.put(fileContents.getBytes());
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -141,6 +144,18 @@ public class FuseErrandsTxt {
 				contents2 = new String(bytesToWrite, StandardCharsets.UTF_8);
 				contents.position(0); // Rewind
 			}
+//			try {
+//				Process process = new ProcessBuilder().command("cat", path).start();
+//				BufferedReader stdOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
+//				String line;
+//				while ((line = stdOut.readLine()) != null) {
+//					System.out.println("FuseErrandsTxt.HelloFS1.write() SRIDHAR " + line);
+//				}
+//
+//			} catch (IOException e) {
+//				e.printStackTrace();
+//			}
+
 			return (int) bufSize;
 		}
 	}
