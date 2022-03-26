@@ -19,21 +19,33 @@ public class MemoryFS {
 			System.err.println("Usage: MemoryFS <mountpoint>");
 			System.exit(1);
 		}
-		new MemoryFSAdapter(args[0]);
+		new MemoryFSAdapter(args[0], "errands.txt", "Hello there, feel free to look around.\n");
 	}
 
 	private static class MemoryFSAdapter extends FuseFilesystemAdapterAssumeImplemented {
 
 		private final MemoryDirectory rootDirectory = new MemoryDirectory("");
 
-		MemoryFSAdapter(String location) {
-			rootDirectory.add(new MemoryFile("errands.txt", "Hello there, feel free to look around.\n"));
+		MemoryFSAdapter(String location, String filename, String fileContents) {
+			byte[] contents = getContents(fileContents);
+			ByteBuffer wrap = ByteBuffer.wrap(contents);
+			ErrandsTxtFile errandsTxtFile = new ErrandsTxtFile(filename, fileContents, contents, wrap);
+			rootDirectory.contents.add((MemoryFS.MemoryFSAdapter.MemoryPath) errandsTxtFile);
 			try {
 				this.log(true).mount(location);
 			} catch (FuseException e) {
 				e.printStackTrace();
 			}
+		}
 
+		private byte[] getContents(final String text) {
+			byte[] bytes = {};
+			try {
+				bytes = text.getBytes("UTF-8");
+			} catch (final UnsupportedEncodingException e) {
+				// Not going to happen
+			}
+			return bytes;
 		}
 
 		private final class MemoryDirectory extends MemoryPath {
@@ -41,14 +53,6 @@ public class MemoryFS {
 
 			private MemoryDirectory(final String name) {
 				super(name);
-			}
-
-			private MemoryDirectory(final String name, final MemoryDirectory parent) {
-				super(name, parent);
-			}
-
-			public synchronized void add(final MemoryPath p) {
-				contents.add(p);
 			}
 
 			@Override
@@ -83,37 +87,18 @@ public class MemoryFS {
 			protected void getattr(final StatWrapper stat) {
 				stat.setMode(NodeType.DIRECTORY);
 			}
-
-			public synchronized void mkfile(final String lastComponent) {
-				contents.add(new MemoryFile(lastComponent, this));
-			}
-
-			public synchronized void read(final DirectoryFiller filler) {
-				for (final MemoryPath p : contents) {
-					filler.add(p.name);
-				}
-			}
 		}
 
-		private final class MemoryFile extends MemoryPath {
+		private final class ErrandsTxtFile extends MemoryPath {
 			private ByteBuffer contents = ByteBuffer.allocate(0);
 
-			private MemoryFile(final String name) {
-				super(name);
-			}
-
-			private MemoryFile(final String name, final MemoryDirectory parent) {
+			private ErrandsTxtFile(final String name, final MemoryDirectory parent) {
 				super(name, parent);
 			}
 
-			public MemoryFile(final String name, final String text) {
+			public ErrandsTxtFile(final String name, final String fileContents, byte[] contents2, ByteBuffer bb) {
 				super(name);
-				try {
-					final byte[] contentBytes = text.getBytes("UTF-8");
-					contents = ByteBuffer.wrap(contentBytes);
-				} catch (final UnsupportedEncodingException e) {
-					// Not going to happen
-				}
+				contents = bb;
 			}
 
 			@Override
@@ -187,7 +172,6 @@ public class MemoryFS {
 			protected abstract void getattr(StatWrapper stat);
 		}
 
-
 		@Override
 		public int access(final String path, final int access) {
 			return 0;
@@ -198,12 +182,17 @@ public class MemoryFS {
 			if (getPath(path) != null) {
 				return -ErrorCodes.EEXIST();
 			}
-			final MemoryPath parent = getParentPath(path);
+			MemoryPath parent = getParentPath(path);
 			if (parent instanceof MemoryDirectory) {
-				((MemoryDirectory) parent).mkfile(getLastComponent(path));
+				MemoryFS.MemoryFSAdapter.MemoryDirectory memoryDirectory = (MemoryDirectory) parent;
+				memoryDirectory.contents.add(new ErrandsTxtFile(getLastComponent(path), memoryDirectory));
 				return 0;
 			}
 			return -ErrorCodes.ENOENT();
+		}
+
+		private MemoryPath getParentPath(final String path) {
+			return rootDirectory.find(path.substring(0, path.lastIndexOf("/")));
 		}
 
 		@Override
@@ -226,10 +215,6 @@ public class MemoryFS {
 			return path.substring(path.lastIndexOf("/") + 1);
 		}
 
-		private MemoryPath getParentPath(final String path) {
-			return rootDirectory.find(path.substring(0, path.lastIndexOf("/")));
-		}
-
 		private MemoryPath getPath(final String path) {
 			return rootDirectory.find(path);
 		}
@@ -246,10 +231,10 @@ public class MemoryFS {
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
-			if (!(p instanceof MemoryFile)) {
+			if (!(p instanceof ErrandsTxtFile)) {
 				return -ErrorCodes.EISDIR();
 			}
-			return ((MemoryFile) p).read(buffer, size, offset);
+			return ((ErrandsTxtFile) p).read(buffer, size, offset);
 		}
 
 		@Override
@@ -261,7 +246,10 @@ public class MemoryFS {
 			if (!(p instanceof MemoryDirectory)) {
 				return -ErrorCodes.ENOTDIR();
 			}
-			((MemoryDirectory) p).read(filler);
+			MemoryFS.MemoryFSAdapter.MemoryDirectory memoryDirectory = (MemoryDirectory) p;
+			for (final MemoryFS.MemoryFSAdapter.MemoryPath p1 : memoryDirectory.contents) {
+				filler.add(p1.name);
+			}
 			return 0;
 		}
 
@@ -271,10 +259,10 @@ public class MemoryFS {
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
-			if (!(p instanceof MemoryFile)) {
+			if (!(p instanceof ErrandsTxtFile)) {
 				return -ErrorCodes.EISDIR();
 			}
-			((MemoryFile) p).truncate(offset);
+			((ErrandsTxtFile) p).truncate(offset);
 			return 0;
 		}
 
@@ -290,10 +278,10 @@ public class MemoryFS {
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
-			if (!(p instanceof MemoryFile)) {
+			if (!(p instanceof ErrandsTxtFile)) {
 				return -ErrorCodes.EISDIR();
 			}
-			return ((MemoryFile) p).write(buf, bufSize, writeOffset);
+			return ((ErrandsTxtFile) p).write(buf, bufSize, writeOffset);
 		}
 	}
 }
