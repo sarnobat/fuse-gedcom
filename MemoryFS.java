@@ -204,14 +204,6 @@ public class MemoryFS {
 		MemoryFSAdapter(String location) {
 			// Sprinkle some files around
 			rootDirectory.add(new MemoryFile("Sample file.txt", "Hello there, feel free to look around.\n"));
-			rootDirectory.add(new MemoryDirectory("Sample directory"));
-			final MemoryDirectory dirWithFiles = new MemoryDirectory("Directory with files");
-			rootDirectory.add(dirWithFiles);
-			dirWithFiles.add(new MemoryFile("hello.txt", "This is some sample text.\n"));
-			dirWithFiles.add(new MemoryFile("hello again.txt", "This another file with text in it! Oh my!\n"));
-			final MemoryDirectory nestedDirectory = new MemoryDirectory("Sample nested directory");
-			dirWithFiles.add(nestedDirectory);
-			nestedDirectory.add(new MemoryFile("So deep.txt", "Man, I'm like, so deep in this here file structure.\n"));
 			try {
 				this.log(true).mount(location);
 			} catch (FuseException e) {
