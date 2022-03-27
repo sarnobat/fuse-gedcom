@@ -50,6 +50,7 @@ public class FuseErrandsTxt {
 	private static class MemoryFSAdapter extends FuseFilesystemAdapterAssumeImplemented {
 
 		private final RootDirectory rootDirectory = new RootDirectory("");
+		private final ErrandsTxtFile errandsTxtFile;
 
 		MemoryFSAdapter(String location, String filename, String fileContents) {
 			String text = fileContents;
@@ -60,7 +61,7 @@ public class FuseErrandsTxt {
 				// Not going to happen
 			}
 			ByteBuffer wrap = ByteBuffer.wrap(bytes);
-			ErrandsTxtFile errandsTxtFile = new ErrandsTxtFile(filename, wrap);
+			errandsTxtFile = new ErrandsTxtFile(filename, wrap);
 			rootDirectory.files.add(errandsTxtFile);
 			try {
 				this.log(true).mount(location);
@@ -70,6 +71,7 @@ public class FuseErrandsTxt {
 		}
 
 		private final class RootDirectory extends MemoryPath {
+			@Deprecated
 			private final List<ErrandsTxtFile> files = new ArrayList<ErrandsTxtFile>();
 
 			private String name;
@@ -80,7 +82,7 @@ public class FuseErrandsTxt {
 
 			protected MemoryPath find(String path) {
 				String path1 = path;
-				FuseErrandsTxt.MemoryFSAdapter.MemoryPath ret;
+				MemoryPath ret;
 				while (path1.startsWith("/")) {
 					path1 = path1.substring(1);
 				}
@@ -116,11 +118,6 @@ public class FuseErrandsTxt {
 				}
 				return null;
 			}
-
-//			@Override
-			private void getattr(StatWrapper stat) {
-				stat.setMode(NodeType.DIRECTORY);
-			}
 		}
 
 		private final class ErrandsTxtFile extends MemoryPath {
@@ -129,8 +126,7 @@ public class FuseErrandsTxt {
 
 			private ErrandsTxtFile(String filename, RootDirectory rootDir) {
 				if (filename == null) {
-					System.out
-							.println("FuseErrandsTxt.MemoryFSAdapter.ErrandsTxtFile.ErrandsTxtFile() develoepr error");
+					System.out.println("ErrandsTxtFile.ErrandsTxtFile() develoepr error");
 					System.exit(-1);
 				}
 				name = filename;
@@ -139,11 +135,6 @@ public class FuseErrandsTxt {
 			public ErrandsTxtFile(String name, ByteBuffer contentsBytes) {
 				this.contents = contentsBytes;
 				this.name = name;
-			}
-
-//			@Override
-			private void getattr(StatWrapper stat) {
-				stat.setMode(NodeType.FILE).size(contents.capacity());
 			}
 
 			private int read(ByteBuffer buffer, long size, long offset) {
@@ -186,12 +177,6 @@ public class FuseErrandsTxt {
 				}
 				return (int) bufSize;
 			}
-		}
-
-		@Deprecated // don't use superclasses
-		private abstract class MemoryPath {
-
-			private String name;
 
 			@Deprecated
 			protected MemoryPath find(String path) {
@@ -203,8 +188,10 @@ public class FuseErrandsTxt {
 				}
 				return null;
 			}
+		}
 
-//			protected abstract void getattr(StatWrapper stat);
+		@Deprecated // don't use superclasses
+		private abstract class MemoryPath {
 		}
 
 		@Override
@@ -217,17 +204,13 @@ public class FuseErrandsTxt {
 			if (rootDirectory.find(path) != null) {
 				return -ErrorCodes.EEXIST();
 			}
-			MemoryPath parent = getParentPath(path);
+			MemoryPath parent = rootDirectory.find(path.substring(0, path.lastIndexOf("/")));
 			if (parent instanceof RootDirectory) {
-				FuseErrandsTxt.MemoryFSAdapter.RootDirectory memoryDirectory = (RootDirectory) parent;
+				RootDirectory memoryDirectory = (RootDirectory) parent;
 				memoryDirectory.files.add(new ErrandsTxtFile(getLastComponent(path), memoryDirectory));
 				return 0;
 			}
 			return -ErrorCodes.ENOENT();
-		}
-
-		private MemoryPath getParentPath(String path) {
-			return rootDirectory.find(path.substring(0, path.lastIndexOf("/")));
 		}
 
 		@Override
@@ -235,17 +218,16 @@ public class FuseErrandsTxt {
 			MemoryPath p = rootDirectory.find(path);
 			if (p != null) {
 				if (p instanceof ErrandsTxtFile) {
-					((ErrandsTxtFile) p).getattr(stat);
+					stat.setMode(NodeType.FILE).size(((ErrandsTxtFile) p).contents.capacity());
 				} else {
-					((RootDirectory) p).getattr(stat);
+					stat.setMode(NodeType.DIRECTORY);
 				}
-
 				return 0;
 			}
 			return -ErrorCodes.ENOENT();
 		}
 
-		private String getLastComponent(String path) {
+		private static String getLastComponent(String path) {
 			while (path.substring(path.length() - 1).equals("/")) {
 				path = path.substring(0, path.length() - 1);
 			}
@@ -281,9 +263,9 @@ public class FuseErrandsTxt {
 			if (!(p instanceof RootDirectory)) {
 				return -ErrorCodes.ENOTDIR();
 			}
-			FuseErrandsTxt.MemoryFSAdapter.RootDirectory memoryDirectory = (RootDirectory) p;
-			for (FuseErrandsTxt.MemoryFSAdapter.MemoryPath p1 : memoryDirectory.files) {
-				filler.add(p1.name);
+			RootDirectory rootDir = (RootDirectory) p;
+			for (ErrandsTxtFile txtFile : rootDir.files) {
+				filler.add(txtFile.name);
 			}
 			return 0;
 		}
