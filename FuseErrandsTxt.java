@@ -50,20 +50,20 @@ public class FuseErrandsTxt {
 		private static final String rootDirName = "";
 		private final RootDirectory rootDirectory = new RootDirectory(rootDirName);
 		private final ErrandsTxtFile errandsTxtFile;
-		private final String filename;
-		private final String fileContents;
+//		private final String filename;
+//		private final String fileContents;
+		ByteBuffer contentsBytes;
 
 		MemoryFSAdapter(String location, String filename, String fileContents) {
-			this.fileContents = fileContents;
 			byte[] bytes = {};
 			try {
 				bytes = fileContents.getBytes("UTF-8");
 			} catch (UnsupportedEncodingException e1) {
 				// Not going to happen
 			}
-			ByteBuffer wrap = ByteBuffer.wrap(bytes);
-			this.filename = filename;
-			errandsTxtFile = new ErrandsTxtFile(filename, wrap);
+			contentsBytes = ByteBuffer.wrap(bytes);
+//			this.filename = filename;
+			this.errandsTxtFile = new ErrandsTxtFile(filename, contentsBytes);
 			try {
 				this.log(true).mount(location);
 			} catch (FuseException e) {
@@ -75,60 +75,61 @@ public class FuseErrandsTxt {
 
 //			@Deprecated // use a global field, not object member
 //			private final String rootDirName;
-
 			private RootDirectory(String name) {
 //				this.rootDirName = name;
 			}
-
 		}
 
 		private final class ErrandsTxtFile extends MemoryPath {
 			@Deprecated
 			private final String txtFilename;
-			private ByteBuffer contents = ByteBuffer.allocate(0);
+			private ByteBuffer contentsBytes = ByteBuffer.allocate(0);
 
 			public ErrandsTxtFile(String name, ByteBuffer contentsBytes) {
-				this.contents = contentsBytes;
+				this.contentsBytes = contentsBytes;
 				this.txtFilename = name;
 			}
 
-			private int read(ByteBuffer buffer, long size, long offset) {
-				int bytesToRead = (int) Math.min(contents.capacity() - offset, size);
+			private int read(ByteBuffer buffer, long size, long offset, ByteBuffer contentsBytes,
+					ErrandsTxtFile errandsTxtFile) {
+				int bytesToRead = (int) Math.min(contentsBytes.capacity() - offset, size);
 				byte[] bytesRead = new byte[bytesToRead];
-				synchronized (this) {
-					contents.position((int) offset);
-					contents.get(bytesRead, 0, bytesToRead);
+				synchronized (errandsTxtFile) {
+					contentsBytes.position((int) offset);
+					contentsBytes.get(bytesRead, 0, bytesToRead);
 					buffer.put(bytesRead);
-					contents.position(0); // Rewind
+					contentsBytes.position(0); // Rewind
 				}
 				return bytesToRead;
 			}
 
-			private synchronized void truncate(long size) {
-				if (size < contents.capacity()) {
-					// Need to create a new, smaller buffer
-					ByteBuffer newContents = ByteBuffer.allocate((int) size);
-					byte[] bytesRead = new byte[(int) size];
-					contents.get(bytesRead);
-					newContents.put(bytesRead);
-					contents = newContents;
+			private synchronized void truncate(long size, ByteBuffer contentsBytes, ErrandsTxtFile errandsTxtFile) {
+				synchronized (errandsTxtFile) {
+					if (size < contentsBytes.capacity()) {
+						// Need to create a new, smaller buffer
+						ByteBuffer newContents = ByteBuffer.allocate((int) size);
+						byte[] bytesRead = new byte[(int) size];
+						contentsBytes.get(bytesRead);
+						newContents.put(bytesRead);
+						contentsBytes = newContents;
+					}
 				}
 			}
 
-			private int write(ByteBuffer buffer, long bufSize, long writeOffset) {
+			private int write(ByteBuffer buffer, long bufSize, long writeOffset, ByteBuffer contentsBytes) {
 				int maxWriteIndex = (int) (writeOffset + bufSize);
 				byte[] bytesToWrite = new byte[(int) bufSize];
 				synchronized (this) {
-					if (maxWriteIndex > contents.capacity()) {
+					if (maxWriteIndex > contentsBytes.capacity()) {
 						// Need to create a new, larger buffer
 						ByteBuffer newContents = ByteBuffer.allocate(maxWriteIndex);
-						newContents.put(contents);
-						contents = newContents;
+						newContents.put(contentsBytes);
+						contentsBytes = newContents;
 					}
 					buffer.get(bytesToWrite, 0, (int) bufSize);
-					contents.position((int) writeOffset);
-					contents.put(bytesToWrite);
-					contents.position(0); // Rewind
+					contentsBytes.position((int) writeOffset);
+					contentsBytes.put(bytesToWrite);
+					contentsBytes.position(0); // Rewind
 				}
 				return (int) bufSize;
 			}
@@ -171,7 +172,7 @@ public class FuseErrandsTxt {
 			MemoryPath p = FuseErrandsTxt.MemoryFSAdapter.find(path, errandsTxtFile, rootDirectory);
 			if (p != null) {
 				if (p instanceof ErrandsTxtFile) {
-					stat.setMode(NodeType.FILE).size(((ErrandsTxtFile) p).contents.capacity());
+					stat.setMode(NodeType.FILE).size(((ErrandsTxtFile) p).contentsBytes.capacity());
 				} else {
 					stat.setMode(NodeType.DIRECTORY);
 				}
@@ -194,7 +195,7 @@ public class FuseErrandsTxt {
 			if (!(p instanceof ErrandsTxtFile)) {
 				return -ErrorCodes.EISDIR();
 			}
-			return ((ErrandsTxtFile) p).read(buffer, size, offset);
+			return ((ErrandsTxtFile) p).read(buffer, size, offset, contentsBytes, errandsTxtFile);
 		}
 
 		@Override
@@ -219,7 +220,7 @@ public class FuseErrandsTxt {
 			if (!(p instanceof ErrandsTxtFile)) {
 				return -ErrorCodes.EISDIR();
 			}
-			((ErrandsTxtFile) p).truncate(offset);
+			((ErrandsTxtFile) p).truncate(offset, contentsBytes, errandsTxtFile);
 			return 0;
 		}
 
@@ -237,7 +238,7 @@ public class FuseErrandsTxt {
 			if (!(p instanceof ErrandsTxtFile)) {
 				return -ErrorCodes.EISDIR();
 			}
-			return ((ErrandsTxtFile) p).write(buf, bufSize, writeOffset);
+			return ((ErrandsTxtFile) p).write(buf, bufSize, writeOffset, contentsBytes);
 		}
 
 		static MemoryPath find(String path, ErrandsTxtFile errandsTxtFile2, RootDirectory rootDir) {
