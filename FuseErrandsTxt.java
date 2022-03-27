@@ -76,14 +76,15 @@ public class FuseErrandsTxt {
 				this.name = name;
 			}
 
-			MemoryPath find(String path) {
+			@Deprecated
+			MemoryPath find(String path, FuseErrandsTxt.MemoryFSAdapter.ErrandsTxtFile errandsTxtFile2, MemoryPath obj) {
 				String path1 = path;
 				MemoryPath ret;
 				while (path1.startsWith("/")) {
 					path1 = path1.substring(1);
 				}
 				if (path1.equals(name) || path1.isEmpty()) {
-					ret = this;
+					ret = obj;
 				} else {
 					ret = null;
 				}
@@ -96,16 +97,16 @@ public class FuseErrandsTxt {
 				}
 				synchronized (this) {
 					if (!path.contains("/")) {
-						String name2 = errandsTxtFile.name;
+						String name2 = errandsTxtFile2.name;
 						if (name2.equals(path)) {
-							return errandsTxtFile;
+							return errandsTxtFile2;
 						}
 						return null;
 					}
 					String nextName = path.substring(0, path.indexOf("/"));
 					String rest = path.substring(path.indexOf("/"));
-					if (errandsTxtFile.name.equals(nextName)) {
-						return errandsTxtFile.find(rest);
+					if (errandsTxtFile2.name.equals(nextName)) {
+						return errandsTxtFile2.find(rest);
 					}
 				}
 				return null;
@@ -184,10 +185,10 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int create(String path, ModeWrapper mode, FileInfoWrapper info) {
-			if (rootDirectory.find(path) != null) {
+			if (rootDirectory.find(path, errandsTxtFile, rootDirectory) != null) {
 				return -ErrorCodes.EEXIST();
 			}
-			MemoryPath parent = rootDirectory.find(path.substring(0, path.lastIndexOf("/")));
+			MemoryPath parent = rootDirectory.find(path.substring(0, path.lastIndexOf("/")), errandsTxtFile, rootDirectory);
 			if (parent instanceof RootDirectory) {
 				return 0;
 			}
@@ -196,7 +197,7 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int getattr(String path, StatWrapper stat) {
-			MemoryPath p = rootDirectory.find(path);
+			MemoryPath p = rootDirectory.find(path, errandsTxtFile, rootDirectory);
 			if (p != null) {
 				if (p instanceof ErrandsTxtFile) {
 					stat.setMode(NodeType.FILE).size(((ErrandsTxtFile) p).contents.capacity());
@@ -215,7 +216,7 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int read(String path, ByteBuffer buffer, long size, long offset, FileInfoWrapper info) {
-			MemoryPath p = rootDirectory.find(path);
+			MemoryPath p = rootDirectory.find(path, errandsTxtFile, rootDirectory);
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
@@ -227,7 +228,7 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int readdir(String path, DirectoryFiller filler) {
-			MemoryPath p = rootDirectory.find(path);
+			MemoryPath p = rootDirectory.find(path, errandsTxtFile, rootDirectory);
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
@@ -240,7 +241,7 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int truncate(String path, long offset) {
-			MemoryPath p = rootDirectory.find(path);
+			MemoryPath p = rootDirectory.find(path, errandsTxtFile, rootDirectory);
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
@@ -258,7 +259,7 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int write(String path, ByteBuffer buf, long bufSize, long writeOffset, FileInfoWrapper wrapper) {
-			MemoryPath p = rootDirectory.find(path);
+			MemoryPath p = rootDirectory.find(path, errandsTxtFile, rootDirectory);
 			if (p == null) {
 				return -ErrorCodes.ENOENT();
 			}
@@ -267,5 +268,6 @@ public class FuseErrandsTxt {
 			}
 			return ((ErrandsTxtFile) p).write(buf, bufSize, writeOffset);
 		}
+		
 	}
 }
