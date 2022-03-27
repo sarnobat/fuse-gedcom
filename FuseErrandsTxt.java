@@ -141,7 +141,6 @@ public class FuseErrandsTxt {
 			if (!(p instanceof ErrandsTxtFile)) {
 				return -ErrorCodes.EISDIR();
 			}
-			FuseErrandsTxt.MemoryFSAdapter.ErrandsTxtFile r = ((ErrandsTxtFile) p);
 			int bytesToRead = (int) Math.min(contentsBytes.capacity() - offset, size);
 			byte[] bytesRead = new byte[bytesToRead];
 			synchronized (errandsTxtFile) {
@@ -176,7 +175,6 @@ public class FuseErrandsTxt {
 				return -ErrorCodes.EISDIR();
 			}
 			ByteBuffer contentsBytes1 = contentsBytes;
-			FuseErrandsTxt.MemoryFSAdapter.ErrandsTxtFile r = ((ErrandsTxtFile) p);
 			synchronized (errandsTxtFile) {
 				if (offset < contentsBytes1.capacity()) {
 					// Need to create a new, smaller buffer
@@ -207,7 +205,7 @@ public class FuseErrandsTxt {
 			ByteBuffer contentsBytes1 = contentsBytes;
 			int maxWriteIndex = (int) (writeOffset + bufSize);
 			byte[] bytesToWrite = new byte[(int) bufSize];
-			synchronized (((ErrandsTxtFile) p)) {
+			synchronized (this) {
 				if (maxWriteIndex > contentsBytes1.capacity()) {
 					// Need to create a new, larger buffer
 					ByteBuffer newContents = ByteBuffer.allocate(maxWriteIndex);
