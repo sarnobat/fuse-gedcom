@@ -89,60 +89,6 @@ public class FuseErrandsTxt {
 				this.contentsBytes = contentsBytes;
 				this.txtFilename = name;
 			}
-
-			private int read(ByteBuffer buffer, long size, long offset, ByteBuffer contentsBytes,
-					ErrandsTxtFile errandsTxtFile) {
-				int bytesToRead = (int) Math.min(contentsBytes.capacity() - offset, size);
-				byte[] bytesRead = new byte[bytesToRead];
-				synchronized (errandsTxtFile) {
-					contentsBytes.position((int) offset);
-					contentsBytes.get(bytesRead, 0, bytesToRead);
-					buffer.put(bytesRead);
-					contentsBytes.position(0); // Rewind
-				}
-				return bytesToRead;
-			}
-
-			private synchronized void truncate(long size, ByteBuffer contentsBytes, ErrandsTxtFile errandsTxtFile) {
-				synchronized (errandsTxtFile) {
-					if (size < contentsBytes.capacity()) {
-						// Need to create a new, smaller buffer
-						ByteBuffer newContents = ByteBuffer.allocate((int) size);
-						byte[] bytesRead = new byte[(int) size];
-						contentsBytes.get(bytesRead);
-						newContents.put(bytesRead);
-						contentsBytes = newContents;
-					}
-				}
-			}
-
-			private int write(ByteBuffer buffer, long bufSize, long writeOffset, ByteBuffer contentsBytes) {
-				int maxWriteIndex = (int) (writeOffset + bufSize);
-				byte[] bytesToWrite = new byte[(int) bufSize];
-				synchronized (this) {
-					if (maxWriteIndex > contentsBytes.capacity()) {
-						// Need to create a new, larger buffer
-						ByteBuffer newContents = ByteBuffer.allocate(maxWriteIndex);
-						newContents.put(contentsBytes);
-						contentsBytes = newContents;
-					}
-					buffer.get(bytesToWrite, 0, (int) bufSize);
-					contentsBytes.position((int) writeOffset);
-					contentsBytes.put(bytesToWrite);
-					contentsBytes.position(0); // Rewind
-				}
-				return (int) bufSize;
-			}
-
-			MemoryPath find(String path) {
-				while (path.startsWith("/")) {
-					path = path.substring(1);
-				}
-				if (path.equals(txtFilename) || path.isEmpty()) {
-					return this;
-				}
-				return null;
-			}
 		}
 
 		@Deprecated // don't use superclasses
@@ -195,7 +141,16 @@ public class FuseErrandsTxt {
 			if (!(p instanceof ErrandsTxtFile)) {
 				return -ErrorCodes.EISDIR();
 			}
-			return ((ErrandsTxtFile) p).read(buffer, size, offset, contentsBytes, errandsTxtFile);
+			FuseErrandsTxt.MemoryFSAdapter.ErrandsTxtFile r = ((ErrandsTxtFile) p);
+			int bytesToRead = (int) Math.min(contentsBytes.capacity() - offset, size);
+			byte[] bytesRead = new byte[bytesToRead];
+			synchronized (errandsTxtFile) {
+				contentsBytes.position((int) offset);
+				contentsBytes.get(bytesRead, 0, bytesToRead);
+				buffer.put(bytesRead);
+				contentsBytes.position(0); // Rewind
+			}
+			return bytesToRead;
 		}
 
 		@Override
@@ -220,7 +175,18 @@ public class FuseErrandsTxt {
 			if (!(p instanceof ErrandsTxtFile)) {
 				return -ErrorCodes.EISDIR();
 			}
-			((ErrandsTxtFile) p).truncate(offset, contentsBytes, errandsTxtFile);
+			ByteBuffer contentsBytes1 = contentsBytes;
+			FuseErrandsTxt.MemoryFSAdapter.ErrandsTxtFile r = ((ErrandsTxtFile) p);
+			synchronized (errandsTxtFile) {
+				if (offset < contentsBytes1.capacity()) {
+					// Need to create a new, smaller buffer
+					ByteBuffer newContents = ByteBuffer.allocate((int) offset);
+					byte[] bytesRead = new byte[(int) offset];
+					contentsBytes1.get(bytesRead);
+					newContents.put(bytesRead);
+					contentsBytes1 = newContents;
+				}
+			}
 			return 0;
 		}
 
@@ -238,7 +204,22 @@ public class FuseErrandsTxt {
 			if (!(p instanceof ErrandsTxtFile)) {
 				return -ErrorCodes.EISDIR();
 			}
-			return ((ErrandsTxtFile) p).write(buf, bufSize, writeOffset, contentsBytes);
+			ByteBuffer contentsBytes1 = contentsBytes;
+			int maxWriteIndex = (int) (writeOffset + bufSize);
+			byte[] bytesToWrite = new byte[(int) bufSize];
+			synchronized (((ErrandsTxtFile) p)) {
+				if (maxWriteIndex > contentsBytes1.capacity()) {
+					// Need to create a new, larger buffer
+					ByteBuffer newContents = ByteBuffer.allocate(maxWriteIndex);
+					newContents.put(contentsBytes1);
+					contentsBytes1 = newContents;
+				}
+				buf.get(bytesToWrite, 0, (int) bufSize);
+				contentsBytes1.position((int) writeOffset);
+				contentsBytes1.put(bytesToWrite);
+				contentsBytes1.position(0); // Rewind
+			}
+			return (int) bufSize;
 		}
 
 		static MemoryPath find(String path, ErrandsTxtFile errandsTxtFile2, RootDirectory rootDir) {
@@ -270,7 +251,13 @@ public class FuseErrandsTxt {
 				String nextName = path.substring(0, path.indexOf("/"));
 				String rest = path.substring(path.indexOf("/"));
 				if (errandsTxtFile2.txtFilename.equals(nextName)) {
-					return errandsTxtFile2.find(rest);
+					while (rest.startsWith("/")) {
+						rest = rest.substring(1);
+					}
+					if (rest.equals(errandsTxtFile2.txtFilename) || rest.isEmpty()) {
+						return errandsTxtFile2;
+					}
+					return null;
 				}
 			}
 			return null;
