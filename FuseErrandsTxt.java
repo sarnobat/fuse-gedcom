@@ -74,13 +74,13 @@ public class FuseErrandsTxt {
 			@Deprecated
 			private final List<ErrandsTxtFile> files = new ArrayList<ErrandsTxtFile>();
 
-			private String name;
+			private final String name;
 
 			private RootDirectory(String name) {
 				this.name = name;
 			}
 
-			protected MemoryPath find(String path) {
+			MemoryPath find(String path) {
 				String path1 = path;
 				MemoryPath ret;
 				while (path1.startsWith("/")) {
@@ -100,20 +100,16 @@ public class FuseErrandsTxt {
 				}
 				synchronized (this) {
 					if (!path.contains("/")) {
-						for (ErrandsTxtFile file : files) {
-							String name2 = file.name;
-							if (name2.equals(path)) {
-								return file;
-							}
+						String name2 = errandsTxtFile.name;
+						if (name2.equals(path)) {
+							return errandsTxtFile;
 						}
 						return null;
 					}
 					String nextName = path.substring(0, path.indexOf("/"));
 					String rest = path.substring(path.indexOf("/"));
-					for (ErrandsTxtFile txtFile : files) {
-						if (txtFile.name.equals(nextName)) {
-							return txtFile.find(rest);
-						}
+					if (errandsTxtFile.name.equals(nextName)) {
+						return errandsTxtFile.find(rest);
 					}
 				}
 				return null;
@@ -121,7 +117,7 @@ public class FuseErrandsTxt {
 		}
 
 		private final class ErrandsTxtFile extends MemoryPath {
-			private String name;
+			private final String name;
 			private ByteBuffer contents = ByteBuffer.allocate(0);
 
 			private ErrandsTxtFile(String filename, RootDirectory rootDir) {
@@ -130,6 +126,7 @@ public class FuseErrandsTxt {
 					System.exit(-1);
 				}
 				name = filename;
+				contents = ByteBuffer.allocate(0);
 			}
 
 			public ErrandsTxtFile(String name, ByteBuffer contentsBytes) {
@@ -178,8 +175,7 @@ public class FuseErrandsTxt {
 				return (int) bufSize;
 			}
 
-			@Deprecated
-			protected MemoryPath find(String path) {
+			MemoryPath find(String path) {
 				while (path.startsWith("/")) {
 					path = path.substring(1);
 				}
@@ -263,10 +259,7 @@ public class FuseErrandsTxt {
 			if (!(p instanceof RootDirectory)) {
 				return -ErrorCodes.ENOTDIR();
 			}
-			RootDirectory rootDir = (RootDirectory) p;
-			for (ErrandsTxtFile txtFile : rootDir.files) {
-				filler.add(txtFile.name);
-			}
+			filler.add(errandsTxtFile.name);
 			return 0;
 		}
 
