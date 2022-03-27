@@ -70,21 +70,25 @@ public class FuseErrandsTxt {
 		private final class RootDirectory extends MemoryPath {
 
 			@Deprecated // use a global field, not object member
-			private final String name;
+			private final String rootDirName;
 
 			private RootDirectory(String name) {
-				this.name = name;
+				this.rootDirName = name;
+			}
+
+			MemoryPath find(String path, ErrandsTxtFile errandsTxtFile2, RootDirectory rootDir) {
+				return MemoryFSAdapter.find(path, errandsTxtFile2, rootDir);
 			}
 
 			@Deprecated
-			MemoryPath find(String path, FuseErrandsTxt.MemoryFSAdapter.ErrandsTxtFile errandsTxtFile2, MemoryPath obj) {
+			MemoryPath find3(String path, ErrandsTxtFile errandsTxtFile2, RootDirectory rootDir) {
 				String path1 = path;
 				MemoryPath ret;
 				while (path1.startsWith("/")) {
 					path1 = path1.substring(1);
 				}
-				if (path1.equals(name) || path1.isEmpty()) {
-					ret = obj;
+				if (path1.equals(this.rootDirName) || path1.isEmpty()) {
+					ret = rootDir;
 				} else {
 					ret = null;
 				}
@@ -97,7 +101,7 @@ public class FuseErrandsTxt {
 				}
 				synchronized (this) {
 					if (!path.contains("/")) {
-						String name2 = errandsTxtFile2.name;
+						String name2 = errandsTxtFile2.txtFilename;
 						if (name2.equals(path)) {
 							return errandsTxtFile2;
 						}
@@ -105,7 +109,7 @@ public class FuseErrandsTxt {
 					}
 					String nextName = path.substring(0, path.indexOf("/"));
 					String rest = path.substring(path.indexOf("/"));
-					if (errandsTxtFile2.name.equals(nextName)) {
+					if (errandsTxtFile2.txtFilename.equals(nextName)) {
 						return errandsTxtFile2.find(rest);
 					}
 				}
@@ -114,12 +118,12 @@ public class FuseErrandsTxt {
 		}
 
 		private final class ErrandsTxtFile extends MemoryPath {
-			private final String name;
+			private final String txtFilename;
 			private ByteBuffer contents = ByteBuffer.allocate(0);
 
 			public ErrandsTxtFile(String name, ByteBuffer contentsBytes) {
 				this.contents = contentsBytes;
-				this.name = name;
+				this.txtFilename = name;
 			}
 
 			private int read(ByteBuffer buffer, long size, long offset) {
@@ -167,7 +171,7 @@ public class FuseErrandsTxt {
 				while (path.startsWith("/")) {
 					path = path.substring(1);
 				}
-				if (path.equals(name) || path.isEmpty()) {
+				if (path.equals(txtFilename) || path.isEmpty()) {
 					return this;
 				}
 				return null;
@@ -175,7 +179,7 @@ public class FuseErrandsTxt {
 		}
 
 		@Deprecated // don't use superclasses
-		private abstract class MemoryPath {
+		public static abstract class MemoryPath {
 		}
 
 		@Override
@@ -188,7 +192,8 @@ public class FuseErrandsTxt {
 			if (rootDirectory.find(path, errandsTxtFile, rootDirectory) != null) {
 				return -ErrorCodes.EEXIST();
 			}
-			MemoryPath parent = rootDirectory.find(path.substring(0, path.lastIndexOf("/")), errandsTxtFile, rootDirectory);
+			MemoryPath parent = rootDirectory.find(path.substring(0, path.lastIndexOf("/")), errandsTxtFile,
+					rootDirectory);
 			if (parent instanceof RootDirectory) {
 				return 0;
 			}
@@ -235,7 +240,7 @@ public class FuseErrandsTxt {
 			if (!(p instanceof RootDirectory)) {
 				return -ErrorCodes.ENOTDIR();
 			}
-			filler.add(errandsTxtFile.name);
+			filler.add(errandsTxtFile.txtFilename);
 			return 0;
 		}
 
@@ -268,6 +273,40 @@ public class FuseErrandsTxt {
 			}
 			return ((ErrandsTxtFile) p).write(buf, bufSize, writeOffset);
 		}
-		
+
+		static MemoryPath find(String path, ErrandsTxtFile errandsTxtFile2, RootDirectory rootDir) {
+			String path1 = path;
+			MemoryPath ret;
+			while (path1.startsWith("/")) {
+				path1 = path1.substring(1);
+			}
+			if (path1.equals(rootDir.rootDirName) || path1.isEmpty()) {
+				ret = rootDir;
+			} else {
+				ret = null;
+			}
+			MemoryPath find2 = ret;
+			if (find2 != null) {
+				return find2;
+			}
+			while (path.startsWith("/")) {
+				path = path.substring(1);
+			}
+			synchronized (rootDir) {
+				if (!path.contains("/")) {
+					String name2 = errandsTxtFile2.txtFilename;
+					if (name2.equals(path)) {
+						return errandsTxtFile2;
+					}
+					return null;
+				}
+				String nextName = path.substring(0, path.indexOf("/"));
+				String rest = path.substring(path.indexOf("/"));
+				if (errandsTxtFile2.txtFilename.equals(nextName)) {
+					return errandsTxtFile2.find(rest);
+				}
+			}
+			return null;
+		}
 	}
 }
