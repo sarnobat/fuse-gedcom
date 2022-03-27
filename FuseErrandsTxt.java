@@ -61,7 +61,7 @@ public class FuseErrandsTxt {
 			}
 			ByteBuffer wrap = ByteBuffer.wrap(bytes);
 			ErrandsTxtFile errandsTxtFile = new ErrandsTxtFile(filename, wrap);
-			rootDirectory.files.add((FuseErrandsTxt.MemoryFSAdapter.MemoryPath) errandsTxtFile);
+			rootDirectory.files.add(errandsTxtFile);
 			try {
 				this.log(true).mount(location);
 			} catch (FuseException e) {
@@ -69,9 +69,8 @@ public class FuseErrandsTxt {
 			}
 		}
 
-		@Deprecated
 		private final class RootDirectory extends MemoryPath {
-			private final List<MemoryPath> files = new ArrayList<MemoryPath>();
+			private final List<ErrandsTxtFile> files = new ArrayList<ErrandsTxtFile>();
 
 			private String name;
 
@@ -79,7 +78,7 @@ public class FuseErrandsTxt {
 				this.name = name;
 			}
 
-			protected MemoryPath find2(String path) {
+			private MemoryPath find2(String path) {
 				while (path.startsWith("/")) {
 					path = path.substring(1);
 				}
@@ -99,17 +98,17 @@ public class FuseErrandsTxt {
 				}
 				synchronized (this) {
 					if (!path.contains("/")) {
-						for (MemoryPath p : files) {
-							String name2 = ((ErrandsTxtFile) p).name;
+						for (ErrandsTxtFile file : files) {
+							String name2 = file.name;
 							if (name2.equals(path)) {
-								return p;
+								return file;
 							}
 						}
 						return null;
 					}
 					String nextName = path.substring(0, path.indexOf("/"));
 					String rest = path.substring(path.indexOf("/"));
-					for (MemoryPath p : files) {
+					for (ErrandsTxtFile p : files) {
 						if (p.name.equals(nextName)) {
 							return p.find(rest);
 						}
@@ -119,7 +118,7 @@ public class FuseErrandsTxt {
 			}
 
 //			@Override
-			protected void getattr(StatWrapper stat) {
+			private void getattr(StatWrapper stat) {
 				stat.setMode(NodeType.DIRECTORY);
 			}
 		}
