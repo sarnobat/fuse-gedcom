@@ -50,7 +50,7 @@ public class FuseErrandsTxt {
 		private static final String rootDirName = "";
 		private final RootDirectory rootDirectory = new RootDirectory(rootDirName);
 		private final ErrandsTxtFile errandsTxtFile;
-//		private final String filename;
+		private final String filename;
 //		private final String fileContents;
 		ByteBuffer contentsBytes;
 
@@ -62,7 +62,7 @@ public class FuseErrandsTxt {
 				// Not going to happen
 			}
 			contentsBytes = ByteBuffer.wrap(bytes);
-//			this.filename = filename;
+			this.filename = filename;
 			this.errandsTxtFile = new ErrandsTxtFile(filename, contentsBytes);
 			try {
 				this.log(true).mount(location);
@@ -81,13 +81,10 @@ public class FuseErrandsTxt {
 		}
 
 		private final class ErrandsTxtFile extends MemoryPath {
-			@Deprecated
-			private final String txtFilename;
 			private ByteBuffer contentsBytes = ByteBuffer.allocate(0);
 
 			public ErrandsTxtFile(String name, ByteBuffer contentsBytes) {
 				this.contentsBytes = contentsBytes;
-				this.txtFilename = name;
 			}
 		}
 
@@ -102,20 +99,19 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int create(String path, ModeWrapper mode, FileInfoWrapper info) {
-			if (FuseErrandsTxt.MemoryFSAdapter.find(path, errandsTxtFile, rootDirectory) != null) {
-				return -ErrorCodes.EEXIST();
+			if (find(path, errandsTxtFile, rootDirectory) != null) {
+				return ErrorCodes.EEXIST();
 			}
-			MemoryPath parent = FuseErrandsTxt.MemoryFSAdapter.find(path.substring(0, path.lastIndexOf("/")),
-					errandsTxtFile, rootDirectory);
+			MemoryPath parent = find(path.substring(0, path.lastIndexOf("/")), errandsTxtFile, rootDirectory);
 			if (parent instanceof RootDirectory) {
 				return 0;
 			}
-			return -ErrorCodes.ENOENT();
+			return ErrorCodes.ENOENT();
 		}
 
 		@Override
 		public int getattr(String path, StatWrapper stat) {
-			MemoryPath p = FuseErrandsTxt.MemoryFSAdapter.find(path, errandsTxtFile, rootDirectory);
+			MemoryPath p = find(path, errandsTxtFile, rootDirectory);
 			if (p != null) {
 				if (p instanceof ErrandsTxtFile) {
 					stat.setMode(NodeType.FILE).size(((ErrandsTxtFile) p).contentsBytes.capacity());
@@ -124,7 +120,7 @@ public class FuseErrandsTxt {
 				}
 				return 0;
 			}
-			return -ErrorCodes.ENOENT();
+			return ErrorCodes.ENOENT();
 		}
 
 		@Override
@@ -134,12 +130,12 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int read(String path, ByteBuffer buffer, long size, long offset, FileInfoWrapper info) {
-			MemoryPath p = FuseErrandsTxt.MemoryFSAdapter.find(path, errandsTxtFile, rootDirectory);
+			MemoryPath p = find(path, errandsTxtFile, rootDirectory);
 			if (p == null) {
-				return -ErrorCodes.ENOENT();
+				return ErrorCodes.ENOENT();
 			}
 			if (!(p instanceof ErrandsTxtFile)) {
-				return -ErrorCodes.EISDIR();
+				return ErrorCodes.EISDIR();
 			}
 			int bytesToRead = (int) Math.min(contentsBytes.capacity() - offset, size);
 			byte[] bytesRead = new byte[bytesToRead];
@@ -154,25 +150,25 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int readdir(String path, DirectoryFiller filler) {
-			MemoryPath p = FuseErrandsTxt.MemoryFSAdapter.find(path, errandsTxtFile, rootDirectory);
+			MemoryPath p = find(path, errandsTxtFile, rootDirectory);
 			if (p == null) {
-				return -ErrorCodes.ENOENT();
+				return ErrorCodes.ENOENT();
 			}
 			if (!(p instanceof RootDirectory)) {
-				return -ErrorCodes.ENOTDIR();
+				return ErrorCodes.ENOTDIR();
 			}
-			filler.add(errandsTxtFile.txtFilename);
+			filler.add(filename);
 			return 0;
 		}
 
 		@Override
 		public int truncate(String path, long offset) {
-			MemoryPath p = MemoryFSAdapter.find(path, errandsTxtFile, rootDirectory);
+			MemoryPath p = find(path, errandsTxtFile, rootDirectory);
 			if (p == null) {
-				return -ErrorCodes.ENOENT();
+				return ErrorCodes.ENOENT();
 			}
 			if (!(p instanceof ErrandsTxtFile)) {
-				return -ErrorCodes.EISDIR();
+				return ErrorCodes.EISDIR();
 			}
 			ByteBuffer contentsBytes1 = contentsBytes;
 			synchronized (errandsTxtFile) {
@@ -190,17 +186,17 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int unlink(String path) {
-			return -ErrorCodes.ENOENT();
+			return ErrorCodes.ENOENT();
 		}
 
 		@Override
 		public int write(String path, ByteBuffer buf, long bufSize, long writeOffset, FileInfoWrapper wrapper) {
-			MemoryPath p = FuseErrandsTxt.MemoryFSAdapter.find(path, errandsTxtFile, rootDirectory);
+			MemoryPath p = find(path, errandsTxtFile, rootDirectory);
 			if (p == null) {
-				return -ErrorCodes.ENOENT();
+				return ErrorCodes.ENOENT();
 			}
 			if (!(p instanceof ErrandsTxtFile)) {
-				return -ErrorCodes.EISDIR();
+				return ErrorCodes.EISDIR();
 			}
 			ByteBuffer contentsBytes1 = contentsBytes;
 			int maxWriteIndex = (int) (writeOffset + bufSize);
@@ -220,7 +216,7 @@ public class FuseErrandsTxt {
 			return (int) bufSize;
 		}
 
-		static MemoryPath find(String path, ErrandsTxtFile errandsTxtFile2, RootDirectory rootDir) {
+		MemoryPath find(String path, ErrandsTxtFile errandsTxtFile2, RootDirectory rootDir) {
 			String path1 = path;
 			MemoryPath ret;
 			while (path1.startsWith("/")) {
@@ -240,7 +236,7 @@ public class FuseErrandsTxt {
 			}
 			synchronized (rootDir) {
 				if (!path.contains("/")) {
-					String name2 = errandsTxtFile2.txtFilename;
+					String name2 = filename;
 					if (name2.equals(path)) {
 						return errandsTxtFile2;
 					}
@@ -248,11 +244,11 @@ public class FuseErrandsTxt {
 				}
 				String nextName = path.substring(0, path.indexOf("/"));
 				String rest = path.substring(path.indexOf("/"));
-				if (errandsTxtFile2.txtFilename.equals(nextName)) {
+				if (filename.equals(nextName)) {
 					while (rest.startsWith("/")) {
 						rest = rest.substring(1);
 					}
-					if (rest.equals(errandsTxtFile2.txtFilename) || rest.isEmpty()) {
+					if (rest.equals(filename) || rest.isEmpty()) {
 						return errandsTxtFile2;
 					}
 					return null;
