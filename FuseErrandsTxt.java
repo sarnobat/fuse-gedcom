@@ -78,7 +78,6 @@ public class FuseErrandsTxt {
 				this.name = name;
 			}
 
-			@Override
 			protected MemoryPath find(String path) {
 				String path1 = path;
 				FuseErrandsTxt.MemoryFSAdapter.MemoryPath ret;
@@ -109,9 +108,9 @@ public class FuseErrandsTxt {
 					}
 					String nextName = path.substring(0, path.indexOf("/"));
 					String rest = path.substring(path.indexOf("/"));
-					for (ErrandsTxtFile p : files) {
-						if (p.name.equals(nextName)) {
-							return p.find(rest);
+					for (ErrandsTxtFile txtFile : files) {
+						if (txtFile.name.equals(nextName)) {
+							return txtFile.find(rest);
 						}
 					}
 				}
@@ -143,7 +142,7 @@ public class FuseErrandsTxt {
 			}
 
 //			@Override
-			protected void getattr(StatWrapper stat) {
+			private void getattr(StatWrapper stat) {
 				stat.setMode(NodeType.FILE).size(contents.capacity());
 			}
 
