@@ -39,7 +39,7 @@ public class FuseErrandsTxt {
 			String line;
 			String all = "";
 			while ((line = br.readLine()) != null) {
-				System.out.println("MemoryFS.main() " + line);
+//				System.out.println("MemoryFS.main() " + line);
 				all += line + "\n";
 			}
 			new MemoryFSAdapter(args[0], "errands.txt", all);
@@ -50,11 +50,13 @@ public class FuseErrandsTxt {
 
 	private static class MemoryFSAdapter extends FuseFilesystemAdapterAssumeImplemented {
 
-		private static final Path pathRoot = Paths.get("");
-		private static final Path pathErrandsTxt = Paths.get("errands.txt");
+		private static final Path pathRoot = Paths.get("/").normalize();
+		private final Path pathErrandsTxt;
 		private ByteBuffer contentsBytes;
 
 		MemoryFSAdapter(String location, String filename, String fileContents) {
+			// Strange, it won't work unless I put slash
+			pathErrandsTxt = Paths.get("/errands.txt").normalize();
 			byte[] bytes = {};
 			try {
 				bytes = fileContents.getBytes("UTF-8");
@@ -62,7 +64,6 @@ public class FuseErrandsTxt {
 				// Not going to happen
 			}
 			contentsBytes = ByteBuffer.wrap(bytes);
-//			contentsBytes2 = contentsBytes;
 			try {
 				this.log(true).mount(location);
 			} catch (FuseException e) {
@@ -77,14 +78,19 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int create(String path, ModeWrapper mode, FileInfoWrapper info) {
+			System.out.println("FuseErrandsTxt.MemoryFSAdapter.create() SRIDHAR " + path);
 			return ErrorCodes.ENOENT();
 		}
 
 		@Override
 		public int getattr(String path, StatWrapper stat) {
-			if (Paths.get(path) != pathErrandsTxt) {
+			System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.getattr() path           = " + path);
+			System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.getattr() pathErrandsTxt = " + pathErrandsTxt);
+			if (Paths.get(path).equals(pathErrandsTxt)) {
+				System.out.println("FuseErrandsTxt.MemoryFSAdapter.getattr() - file: " + path);
 				stat.setMode(NodeType.FILE).size(contentsBytes.capacity());
-			} else if (Paths.get(path) != pathRoot) {
+			} else {
+				System.out.println("FuseErrandsTxt.MemoryFSAdapter.getattr() - directory: " + path);
 				stat.setMode(NodeType.DIRECTORY);
 			}
 			return 0;
@@ -97,9 +103,9 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int read(String path, ByteBuffer buffer, long size, long offset, FileInfoWrapper info) {
-			if (Paths.get(path) == pathRoot) {
+			if (Paths.get(path).normalize().equals(pathRoot)) {
 				return ErrorCodes.EISDIR();
-			} else if (Paths.get(path) == pathErrandsTxt) {
+			} else if (Paths.get(path).normalize().equals(pathErrandsTxt)) {
 				int bytesToRead = (int) Math.min(contentsBytes.capacity() - offset, size);
 				byte[] bytesRead = new byte[bytesToRead];
 				synchronized (this) {
@@ -115,9 +121,11 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int readdir(String path, DirectoryFiller filler) {
-			if (Paths.get(path) == pathRoot) {
-				filler.add(pathErrandsTxt.getFileName().toString());
-			} else if (Paths.get(path) == pathErrandsTxt) {
+			System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.read() path     = " + path);
+			System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.read() pathRoot = " + pathRoot);
+			if (pathRoot.equals(Paths.get(path).normalize())) {
+				filler.add("errands.txt");
+			} else if (Paths.get(path).normalize().equals(pathErrandsTxt)) {
 				return ErrorCodes.ENOTDIR();
 			}
 			return 0;
@@ -125,9 +133,9 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int truncate(String path, long offset) {
-			if (Paths.get(path) == pathRoot) {
+			if (Paths.get(path).normalize().equals(pathRoot)) {
 				return ErrorCodes.EISDIR();
-			} else if (Paths.get(path) == pathErrandsTxt) {
+			} else if (Paths.get(path).normalize() .equals(pathErrandsTxt)) {
 
 				synchronized (this) {
 					if (offset < contentsBytes.capacity()) {
@@ -145,9 +153,9 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int write(String path, ByteBuffer buf, long bufSize, long writeOffset, FileInfoWrapper wrapper) {
-			if (Paths.get(path) == pathRoot) {
+			if (Paths.get(path).normalize().equals(pathRoot)) {
 				return ErrorCodes.EISDIR();
-			} else if (Paths.get(path) == pathErrandsTxt) {
+			} else if (Paths.get(path).normalize().equals(pathErrandsTxt)) {
 				int maxWriteIndex = (int) (writeOffset + bufSize);
 				byte[] bytesToWrite = new byte[(int) bufSize];
 				synchronized (this) {
