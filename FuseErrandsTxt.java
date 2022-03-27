@@ -5,8 +5,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 import net.fusejna.DirectoryFiller;
 import net.fusejna.ErrorCodes;
@@ -62,7 +60,6 @@ public class FuseErrandsTxt {
 			}
 			ByteBuffer wrap = ByteBuffer.wrap(bytes);
 			errandsTxtFile = new ErrandsTxtFile(filename, wrap);
-			rootDirectory.files.add(errandsTxtFile);
 			try {
 				this.log(true).mount(location);
 			} catch (FuseException e) {
@@ -71,9 +68,8 @@ public class FuseErrandsTxt {
 		}
 
 		private final class RootDirectory extends MemoryPath {
-			@Deprecated
-			private final List<ErrandsTxtFile> files = new ArrayList<ErrandsTxtFile>();
 
+			@Deprecated // use a global field, not object member
 			private final String name;
 
 			private RootDirectory(String name) {
@@ -119,15 +115,6 @@ public class FuseErrandsTxt {
 		private final class ErrandsTxtFile extends MemoryPath {
 			private final String name;
 			private ByteBuffer contents = ByteBuffer.allocate(0);
-
-			private ErrandsTxtFile(String filename, RootDirectory rootDir) {
-				if (filename == null) {
-					System.out.println("ErrandsTxtFile.ErrandsTxtFile() develoepr error");
-					System.exit(-1);
-				}
-				name = filename;
-				contents = ByteBuffer.allocate(0);
-			}
 
 			public ErrandsTxtFile(String name, ByteBuffer contentsBytes) {
 				this.contents = contentsBytes;
@@ -202,8 +189,6 @@ public class FuseErrandsTxt {
 			}
 			MemoryPath parent = rootDirectory.find(path.substring(0, path.lastIndexOf("/")));
 			if (parent instanceof RootDirectory) {
-				RootDirectory memoryDirectory = (RootDirectory) parent;
-				memoryDirectory.files.add(new ErrandsTxtFile(getLastComponent(path), memoryDirectory));
 				return 0;
 			}
 			return -ErrorCodes.ENOENT();
@@ -221,16 +206,6 @@ public class FuseErrandsTxt {
 				return 0;
 			}
 			return -ErrorCodes.ENOENT();
-		}
-
-		private static String getLastComponent(String path) {
-			while (path.substring(path.length() - 1).equals("/")) {
-				path = path.substring(0, path.length() - 1);
-			}
-			if (path.isEmpty()) {
-				return "";
-			}
-			return path.substring(path.lastIndexOf("/") + 1);
 		}
 
 		@Override
