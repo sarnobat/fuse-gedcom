@@ -198,7 +198,7 @@ public class FuseErrandsTxt {
 					{
 						try {
 							Process downstream = new ProcessBuilder()
-									.command("bash", "-c", "cat - | perl -pe 's{^}{SRIDHAR saving: }'").start();
+									.command("bash", "-c", "cat - | python3 /Volumes/git/src.git/python/indent/indented2path.py | perl -pe 's{^}{SRIDHAR saving: }'").start();
 							BufferedWriter writer = new BufferedWriter(
 									new OutputStreamWriter(downstream.getOutputStream()));
 							System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() launched");
