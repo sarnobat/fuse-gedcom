@@ -5,6 +5,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -22,11 +23,14 @@ import net.fusejna.util.FuseFilesystemAdapterAssumeImplemented;
 // This version will not be based on inheritance. That makes it harder to compose.
 public class FuseErrandsTxt {
 
-	public static void main(String... args) throws FuseException {
+	public static void main(String... args) throws FuseException, IOException {
 		if (args.length != 1) {
 			System.err.println("Usage: MemoryFS <mountpoint>");
 			System.exit(1);
 		}
+		String rootDirPath = args[0];
+		Files.createDirectories(Paths.get(rootDirPath));
+
 		try {
 			// Add the inode number
 			// | xargs --delimiter '\n' --max-args=1 ls -id
@@ -44,7 +48,7 @@ public class FuseErrandsTxt {
 //				System.out.println("MemoryFS.main() " + line);
 				all += line + "\n";
 			}
-			new MemoryFSAdapter(args[0], "errands.txt", all);
+			new MemoryFSAdapter(rootDirPath, "errands.txt", all);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -176,6 +180,8 @@ public class FuseErrandsTxt {
 					contentsBytes.position(0); // Rewind
 				}
 				{
+					System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() TODO: implement indented2path.py");
+					System.exit(-1);
 					String[] s = new String(contentsBytes.array(), Charsets.UTF_8).split("\\n");
 					for (String line : s) {
 						if (Paths.get(line).toFile().exists()) {
