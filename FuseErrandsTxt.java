@@ -8,6 +8,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import com.google.common.base.Charsets;
+
 import net.fusejna.DirectoryFiller;
 import net.fusejna.ErrorCodes;
 import net.fusejna.FuseException;
@@ -135,7 +137,7 @@ public class FuseErrandsTxt {
 		public int truncate(String path, long offset) {
 			if (Paths.get(path).normalize().equals(pathRoot)) {
 				return ErrorCodes.EISDIR();
-			} else if (Paths.get(path).normalize() .equals(pathErrandsTxt)) {
+			} else if (Paths.get(path).normalize().equals(pathErrandsTxt)) {
 
 				synchronized (this) {
 					if (offset < contentsBytes.capacity()) {
@@ -153,9 +155,12 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int write(String path, ByteBuffer buf, long bufSize, long writeOffset, FileInfoWrapper wrapper) {
+
 			if (Paths.get(path).normalize().equals(pathRoot)) {
 				return ErrorCodes.EISDIR();
 			} else if (Paths.get(path).normalize().equals(pathErrandsTxt)) {
+				System.out.println(
+						"SRIDHAR FuseErrandsTxt.MemoryFSAdapter.write() writeOffset writeOffset = " + writeOffset);
 				int maxWriteIndex = (int) (writeOffset + bufSize);
 				byte[] bytesToWrite = new byte[(int) bufSize];
 				synchronized (this) {
@@ -169,6 +174,17 @@ public class FuseErrandsTxt {
 					contentsBytes.position((int) writeOffset);
 					contentsBytes.put(bytesToWrite);
 					contentsBytes.position(0); // Rewind
+				}
+				{
+					String[] s = new String(contentsBytes.array(), Charsets.UTF_8).split("\\n");
+					for (String line : s) {
+						if (Paths.get(line).toFile().exists()) {
+							System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.write() already exists: " + line);
+						}else {
+							// it got changed
+							System.out.println("!!!!!!!!!SRIDHAR FuseErrandsTxt.MemoryFSAdapter.write() edited: " + line);
+						}
+					}
 				}
 				return (int) bufSize;
 
