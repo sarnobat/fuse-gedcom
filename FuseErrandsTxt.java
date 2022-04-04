@@ -1,18 +1,15 @@
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Scanner;
 
 import com.google.common.base.Charsets;
 
@@ -78,7 +75,7 @@ public class FuseErrandsTxt {
 			}
 			mutableErrandsTxtContent = ByteBuffer.wrap(stdinContentBytes);
 			try {
-				this.log(true).mount(location);
+				this.log(false).mount(location);
 			} catch (FuseException e) {
 				e.printStackTrace();
 			}
@@ -98,12 +95,12 @@ public class FuseErrandsTxt {
 		@Override
 		public int getattr(String path, StatWrapper stat) {
 			System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.getattr() path           = " + path);
-			System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.getattr() pathErrandsTxt = " + pathErrandsTxt);
+//			System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.getattr() pathErrandsTxt = " + pathErrandsTxt);
 			if (Paths.get(path).equals(pathErrandsTxt)) {
-				System.out.println("FuseErrandsTxt.MemoryFSAdapter.getattr() - file: " + path);
+//				System.out.println("FuseErrandsTxt.MemoryFSAdapter.getattr() - file: " + path);
 				stat.setMode(NodeType.FILE).size(mutableErrandsTxtContent.capacity());
 			} else {
-				System.out.println("FuseErrandsTxt.MemoryFSAdapter.getattr() - directory: " + path);
+//				System.out.println("FuseErrandsTxt.MemoryFSAdapter.getattr() - directory: " + path);
 				stat.setMode(NodeType.DIRECTORY);
 			}
 			return 0;
@@ -197,8 +194,9 @@ public class FuseErrandsTxt {
 
 					{
 						try {
-							Process downstream = new ProcessBuilder()
-									.command("bash", "-c", "cat - | python3 /Volumes/git/src.git/python/indent/indented2path.py | perl -pe 's{^}{SRIDHAR saving: }'").start();
+							Process downstream = new ProcessBuilder().command("bash", "-c",
+									"cat - | python3 /Volumes/git/src.git/python/indent/indented2path.py")
+									.start();
 							BufferedWriter writer = new BufferedWriter(
 									new OutputStreamWriter(downstream.getOutputStream()));
 							System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() launched");
@@ -229,6 +227,67 @@ public class FuseErrandsTxt {
 							System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() reading from process output");
 							while ((line = br.readLine()) != null) {
 								System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() - downstream 4: " + line);
+								Path p = Paths.get(line);
+								System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() p = " + p);
+								if (p.toFile().exists()) {
+									// Note we can't perform this before the while loop as part of the shell callout
+									// because the existence will change after the mkdir for an earlier line
+									// We rely on a parent path being printed before the child path.
+
+									// nothing to do
+								} else {
+									// case 1
+									// mv
+									_checkIfMoved: {
+										// Hack: check the parent folder for near-matches
+										// writing code that diffs against the original is quite complex
+										// TODO: More accurate but more ugly solution: store the inode in the name
+										if (p.getParent() == null) {
+											System.out.println(
+													"FuseErrandsTxt.MemoryFSAdapter.write() root rename unsupported");
+										} else {
+											String parent = p.getParent().toString();
+											System.out.println(
+													"FuseErrandsTxt.MemoryFSAdapter.write() parent = " + parent);
+											Path path2 = Paths.get(parent);
+											File parentFile = p.toFile().getParentFile();
+											System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() parent file = "
+													+ parentFile.getAbsolutePath());
+											
+											String[] existingSiblingFiles = parentFile.list();
+
+											// Bad: loop with 2 variables (but I don't want to use null as a check)
+											// Could use a map instead with hasKey() as a boolean check
+											boolean hasMatchSurpassing = false;
+											//File originalFile = null;
+											String originalFile = null;
+											System.out.println(
+													"FuseErrandsTxt.MemoryFSAdapter.write() existingSiblingFiles = "
+															+ existingSiblingFiles);
+											//for (File existingSibling : existingSiblingFiles) {
+											for (String existingSibling : existingSiblingFiles) {
+												String name = existingSibling;
+												String name2 = p.toFile().getName();
+												if (pecentageOfTextMatch(name, name2) > Double
+														.parseDouble(System.getProperty("threshold", "0.5"))) {
+													hasMatchSurpassing = true;
+													originalFile = existingSibling;
+													break;
+												}
+											}
+											if (hasMatchSurpassing) {
+												new ProcessBuilder()
+														.command("mv", originalFile, p.toFile().getName())
+														.start();
+											}
+										}
+									}
+									_checkIfNewLine: {
+										// case 2
+										// mkdir
+										new ProcessBuilder().command("mkdir", p.toFile().getName()).start();
+									}
+								}
 							}
 							br.close();
 						} catch (IOException e1) {
@@ -236,24 +295,65 @@ public class FuseErrandsTxt {
 							// TODO: not sure what is the best thing to do at this point. Exit?
 						}
 					}
-//					for (String txtLine : txtNewContent) {
-//						// TODO: move this logic to GENERIC shell script
-//						if (Paths.get(txtLine).toFile().exists()) {
-//							System.err.println(
-//									"SRIDHAR FuseErrandsTxt.MemoryFSAdapter.write() already exists, do nothing: "
-//											+ txtLine);
-//						} else {
-//							// it got changed
-//							System.out.println(
-//									"!!!!!!!!!SRIDHAR FuseErrandsTxt.MemoryFSAdapter.write() edited: " + txtLine);
-//						}
-//					}
 				}
 				return (int) bufSize;
 
 			} else {
 				return 0;
 			}
+		}
+
+		public static int pecentageOfTextMatch(String s0, String s1) { // Trim and remove duplicate spaces
+			int percentage = 0;
+			s0 = s0.trim().replaceAll("\\s+", " ");
+			s1 = s1.trim().replaceAll("\\s+", " ");
+			percentage = (int) (100 - (float) LevenshteinDistance(s0, s1) * 100 / (float) (s0.length() + s1.length()));
+			return percentage;
+		}
+
+		public static int LevenshteinDistance(String s0, String s1) {
+
+			int len0 = s0.length() + 1;
+			int len1 = s1.length() + 1;
+			// the array of distances
+			int[] cost = new int[len0];
+			int[] newcost = new int[len0];
+
+			// initial cost of skipping prefix in String s0
+			for (int i = 0; i < len0; i++)
+				cost[i] = i;
+
+			// dynamically computing the array of distances
+
+			// transformation cost for each letter in s1
+			for (int j = 1; j < len1; j++) {
+
+				// initial cost of skipping prefix in String s1
+				newcost[0] = j - 1;
+
+				// transformation cost for each letter in s0
+				for (int i = 1; i < len0; i++) {
+
+					// matching current letters in both strings
+					int match = (s0.charAt(i - 1) == s1.charAt(j - 1)) ? 0 : 1;
+
+					// computing cost for each transformation
+					int cost_replace = cost[i - 1] + match;
+					int cost_insert = cost[i] + 1;
+					int cost_delete = newcost[i - 1] + 1;
+
+					// keep minimum cost
+					newcost[i] = Math.min(Math.min(cost_insert, cost_delete), cost_replace);
+				}
+
+				// swap cost/newcost arrays
+				int[] swap = cost;
+				cost = newcost;
+				newcost = swap;
+			}
+
+			// the distance is the cost for transforming all letters in both strings
+			return cost[len0 - 1];
 		}
 	}
 }
