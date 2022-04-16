@@ -7,9 +7,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Iterator;
 
 import com.google.common.base.Charsets;
 
@@ -26,7 +28,7 @@ import net.fusejna.util.FuseFilesystemAdapterAssumeImplemented;
 public class FuseErrandsTxt {
 
 	@SuppressWarnings("unused")
-	public static void main(String... args) throws FuseException, IOException {
+	public static void main(String... args) throws FuseException, IOException, InterruptedException {
 		if (args.length != 1) {
 			System.err.println("Usage: MemoryFS <mountpoint>");
 			System.exit(1);
@@ -94,7 +96,7 @@ public class FuseErrandsTxt {
 
 		@Override
 		public int getattr(String path, StatWrapper stat) {
-			System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.getattr() path           = " + path);
+//			System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.getattr() path           = " + path);
 //			System.out.println("SRIDHAR FuseErrandsTxt.MemoryFSAdapter.getattr() pathErrandsTxt = " + pathErrandsTxt);
 			if (Paths.get(path).equals(pathErrandsTxt)) {
 //				System.out.println("FuseErrandsTxt.MemoryFSAdapter.getattr() - file: " + path);
@@ -194,8 +196,9 @@ public class FuseErrandsTxt {
 
 					{
 						try {
-							Process downstream = new ProcessBuilder().command("bash", "-c",
-									"cat - | python3 /Volumes/git/src.git/python/indent/indented2path.py")
+							Process downstream = new ProcessBuilder()
+									.command("bash", "-c",
+											"cat - | python3 /Volumes/git/src.git/python/indent/indented2path.py")
 									.start();
 							BufferedWriter writer = new BufferedWriter(
 									new OutputStreamWriter(downstream.getOutputStream()));
@@ -227,9 +230,9 @@ public class FuseErrandsTxt {
 							System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() reading from process output");
 							while ((line = br.readLine()) != null) {
 								System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() - downstream 4: " + line);
-								Path p = Paths.get(line);
-								System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() p = " + p);
-								if (p.toFile().exists()) {
+								Path destinationPath = Paths.get(line);
+								System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() p = " + destinationPath);
+								if (destinationPath.toFile().exists()) {
 									// Note we can't perform this before the while loop as part of the shell callout
 									// because the existence will change after the mkdir for an earlier line
 									// We rely on a parent path being printed before the child path.
@@ -242,50 +245,86 @@ public class FuseErrandsTxt {
 										// Hack: check the parent folder for near-matches
 										// writing code that diffs against the original is quite complex
 										// TODO: More accurate but more ugly solution: store the inode in the name
-										if (p.getParent() == null) {
+										if (destinationPath.getParent().toFile() == null) {
 											System.out.println(
 													"FuseErrandsTxt.MemoryFSAdapter.write() root rename unsupported");
 										} else {
-											String parent = p.getParent().toString();
+											String parent = destinationPath.getParent().toString();
 											System.out.println(
 													"FuseErrandsTxt.MemoryFSAdapter.write() parent = " + parent);
-											Path path2 = Paths.get(parent);
-											File parentFile = p.toFile().getParentFile();
+											PICKUP: the true parent of car is missing so is screwing it up. Python probably needs fixing
+											Path parentPath = Paths.get(parent);
+											File parentFile = destinationPath.toFile().getParentFile();
+
 											System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() parent file = "
 													+ parentFile.getAbsolutePath());
-											
+
 											String[] existingSiblingFiles = parentFile.list();
 
 											// Bad: loop with 2 variables (but I don't want to use null as a check)
 											// Could use a map instead with hasKey() as a boolean check
 											boolean hasMatchSurpassing = false;
-											//File originalFile = null;
-											String originalFile = null;
+											// File originalFile = null;
+											Path originalFile = null;
 											System.out.println(
 													"FuseErrandsTxt.MemoryFSAdapter.write() existingSiblingFiles = "
 															+ existingSiblingFiles);
-											//for (File existingSibling : existingSiblingFiles) {
-											for (String existingSibling : existingSiblingFiles) {
-												String name = existingSibling;
-												String name2 = p.toFile().getName();
-												if (pecentageOfTextMatch(name, name2) > Double
-														.parseDouble(System.getProperty("threshold", "0.5"))) {
-													hasMatchSurpassing = true;
-													originalFile = existingSibling;
-													break;
+											// for (File existingSibling : existingSiblingFiles) {
+											// for (String existingSibling : existingSiblingFiles) {
+											try (DirectoryStream<Path> directoryStream = Files
+													.newDirectoryStream(parentPath)) {
+												Iterator<Path> iterator = directoryStream.iterator();
+												while (iterator.hasNext()) {
+													Path existingSibling = iterator.next();
+													String name = existingSibling.toFile().getName();
+													String name2 = destinationPath.toFile().getName();
+													System.out.println(
+															"FuseErrandsTxt.MemoryFSAdapter.write() name = " + name);
+													System.out.println(
+															"FuseErrandsTxt.MemoryFSAdapter.write() name2 = " + name2);
+													int pecentageOfTextMatch = pecentageOfTextMatch(name, name2);
+													System.out.println(
+															"FuseErrandsTxt.MemoryFSAdapter.write() pecentageOfTextMatch = "
+																	+ pecentageOfTextMatch);
+													if (pecentageOfTextMatch > Double.parseDouble(
+															System.getProperty("threshold", "0.75")) * 100) {
+														hasMatchSurpassing = true;
+														originalFile = existingSibling;
+														break;
+													}
 												}
 											}
 											if (hasMatchSurpassing) {
+												System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() mv needed");
+												// sanity check
+												if (!originalFile.toFile().exists()) {
+													System.out.println(
+															"FuseErrandsTxt.MemoryFSAdapter.write() does not exist: "
+																	+ originalFile.toAbsolutePath());
+													System.exit(-1);
+												}
 												new ProcessBuilder()
-														.command("mv", originalFile, p.toFile().getName())
-														.start();
+														.command("mv", "-v", originalFile.toAbsolutePath().toString(),
+																destinationPath.toAbsolutePath().toString())
+														.inheritIO().start();
+												System.out
+														.println("FuseErrandsTxt.MemoryFSAdapter.write() mv succeeded");
 											}
 										}
 									}
 									_checkIfNewLine: {
 										// case 2
 										// mkdir
-										new ProcessBuilder().command("mkdir", p.toFile().getName()).start();
+										try {
+											new ProcessBuilder()
+													.command("mkdir", "-v", destinationPath.toFile().getName())
+													.inheritIO().start().wait();
+											System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() mkdir success");
+										} catch (InterruptedException e) {
+											System.out.println("FuseErrandsTxt.MemoryFSAdapter.write() mkdir failure");
+											e.printStackTrace();
+											System.exit(-1);
+										}
 									}
 								}
 							}
@@ -298,7 +337,9 @@ public class FuseErrandsTxt {
 				}
 				return (int) bufSize;
 
-			} else {
+			} else
+
+			{
 				return 0;
 			}
 		}
